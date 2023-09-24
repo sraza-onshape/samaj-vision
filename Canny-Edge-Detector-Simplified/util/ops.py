@@ -33,7 +33,7 @@ def apply_kernel(
     # A: define useful vars
     kernel_h, kernel_w = len(kernel), len(kernel[0])
     # B: get the block of pixels needed for the convolution
-    block_of_pixels = channel[row_index:(kernel_h + row_index), col_index:(kernel_w + col_index)]
+    block_of_pixels = channel[row_index:(kernel_h + row_index)][col_index:(kernel_w + col_index)]
     # C: compute the convolution
     return convolve_matrices(kernel, block_of_pixels)
 
@@ -117,7 +117,31 @@ def convolution(
 
     Returns: np.array: a new RGB image
     """
-    # TODO[use same padding to ensure output matrix has same dims]
+    ### HELPER
+    def _pad(image: List[List[float]], type: str = "zero") -> List[List[float]]:
+        padded_image = list()
+
+        # zero-padding
+        if type == "zero":  
+            filter_width = len(filter[0])
+            filter_half_width = filter_width // 2
+            # add the rows (at the beginning) that are all 0
+            for _ in range(filter_half_width):
+                padded_image.append([0 for _ in range(2 * filter_half_width + len(image[0]))])
+            # add the original image (extend its rows with zeros)
+            for row in image:
+                zeros = [0 for _ in range(filter_half_width)]
+                padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
+                padded_image.append(padded_row)
+            # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
+            for _ in range(filter_half_width):
+                padded_image.append([0 for _ in range(2 * filter_half_width + len(image[0]))])
+
+        return padded_image
+
+    ### DRIVER
+    if padding == "SAME":
+        image = _pad(image)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
   
