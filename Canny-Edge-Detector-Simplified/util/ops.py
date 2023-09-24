@@ -1,3 +1,4 @@
+import numpy as np
 from typing import List
 
 
@@ -33,9 +34,12 @@ def apply_kernel(
     # A: define useful vars
     kernel_h, kernel_w = len(kernel), len(kernel[0])
     # B: get the block of pixels needed for the convolution
-    block_of_pixels = channel[row_index:(kernel_h + row_index)][col_index:(kernel_w + col_index)]
+    block_of_pixels = [
+        row[col_index:(kernel_w + col_index)]
+        for row in channel[row_index:(kernel_h + row_index)]
+    ]
     # C: compute the convolution
-    return convolve_matrices(kernel, block_of_pixels)
+    return convolve_matrices(block_of_pixels, kernel)
 
 
 def slide_kernel_over_image(
@@ -59,7 +63,7 @@ def slide_kernel_over_image(
     conv_channel_row = list()
     # B: get the starting column
     starting_col_ndx = 0
-    while starting_col_ndx < len(channel) - kernel_w:
+    while starting_col_ndx <= len(channel) - kernel_w:
         # compute the convolution
         conv_block_of_pixels = apply_kernel(channel, kernel, row_index, starting_col_ndx)
         # add it to the output
@@ -87,7 +91,7 @@ def convolve_2D(
     kernel_h, _ = len(kernel), len(kernel[0])
     # iterate over the rows and columns
     starting_row_ndx = 0
-    while starting_row_ndx < len(channel) - kernel_h:
+    while starting_row_ndx <= len(channel) - kernel_h:
         # convolve the next row of this channel
         conv_channel_row = slide_kernel_over_image(channel, kernel, starting_row_ndx, stride)
         # now, add the convolved row to the list 
@@ -106,7 +110,7 @@ def convolution(
     """Performs a convolution on an input image.
 
     Assumptions:
-        1. image is square and the size is an odd number
+        1. image is square
         2. filter is square and the size is an odd number.
         3. the filter is smaller than the image size
 
@@ -144,4 +148,16 @@ def convolution(
         image = _pad(image)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
-  
+
+if __name__ == "__main__":
+    # a few small test cases
+    matrix1 = np.arange(9).reshape(3, 3) + 1
+    matrix2 = np.arange(36).reshape(6, 6) + 1
+    fake_filter = np.ones(1).reshape(1, 1)
+    even_sized = np.arange(4).reshape(2, 2) + 1
+
+    
+    # print(convolution(matrix1.tolist(), fake_filter.tolist()))  # ✅ no padding used
+    # print(convolution(matrix1.tolist(), matrix1.tolist()))  # ✅ padding used
+    # print(convolution(even_sized.tolist(), fake_filter.tolist()))  # ✅ no padding used
+    print(convolution(matrix2.tolist(), matrix1.tolist()))  # ✅ padding used
