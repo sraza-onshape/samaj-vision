@@ -1,13 +1,13 @@
 import numpy as np
 from typing import List
 
+import ops
 
 class GaussianFilter:
-    '''A 2D Gaussian filter to use for smoothening images (and edge detection?).'''
+    '''A 2D Gaussian filter to use for smoothening images.'''
     
-    def __init__(self, sigma: int = None) -> None:
-        if sigma:
-            self._set_parameters(sigma)
+    def __init__(self, sigma: int = 1) -> None:
+        self._set_parameters(sigma)
     
     def _set_parameters(self, sigma: int):
         self.sigma = sigma
@@ -19,9 +19,10 @@ class GaussianFilter:
         power = np.exp(exponent)  # Euler's number (e) is the base
         return power / (2 * np.pi * (self.sigma ** 2))
 
-    def create_gaussian_filter(self, sigma: int) -> List[List[float]]:
+    def create_gaussian_filter(self, sigma: int = None) -> List[List[float]]:
         '''create 2D array for for the filter'''
-        self._set_parameters(sigma)
+        if sigma:
+            self._set_parameters(sigma)
         center_pos = 3 * self.sigma  # in both axes
         filter = list()
 
@@ -37,7 +38,7 @@ class GaussianFilter:
     
 
 if __name__ == "__main__":
-    # test out the functions, ensure the coefs sum to 1
+    # test out the functions, ensure the coefs sum to approx. 1
     sigma = 1
     filter = GaussianFilter()
     matrix = filter.create_gaussian_filter(sigma)
