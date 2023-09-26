@@ -36,6 +36,16 @@ class GaussianFilter:
         
         return filter
     
+    def smooth(
+        self, 
+        image: List[List[float]], 
+        filter: List[List[float]] = None
+    ) -> List[List[float]]:
+        '''Applies this Gaussian filter to an input image.'''
+        if not filter:
+            filter = self.create_gaussian_filter()
+        return ops.convolution(image, filter)
+
 
 if __name__ == "__main__":
     # test out the functions, ensure the coefs sum to approx. 1
