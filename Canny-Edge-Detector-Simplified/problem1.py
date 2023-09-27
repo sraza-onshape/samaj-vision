@@ -20,7 +20,7 @@ class GaussianDerivativeFilter(GaussianFilter):
         [1,  2,  1]
     ]
 
-    def __init__(self, sigma: int = None) -> None:
+    def __init__(self, sigma: int = 1) -> None:
         super().__init__(sigma)
         # create the 2D Gaussian filter
         self.filter_matrix = self.create_gaussian_filter(self.sigma)
@@ -37,7 +37,11 @@ class GaussianDerivativeFilter(GaussianFilter):
         partial_derivative_y = ops.convolution(image, gaussian_derivative_y_filter)
         return partial_derivative_x, partial_derivative_y
 
-    def detect_edges(self, image: List[List[float]]) -> np.array:
+    def detect_edges(
+            self,
+            image: List[List[int]],
+            threshold: float = float("-inf")
+        ) -> np.array:
         '''Do edge detection: use the convolved images in the magnitude formula --> visualize it'''
         ### HELPERS
         def _compute_magnitude(partial_derivative_x, partial_derivative_y):
@@ -52,10 +56,12 @@ class GaussianDerivativeFilter(GaussianFilter):
         ### DRIVER
         partial_derivative_x, partial_derivative_y = self._compute_derivatives(image)
         edges = _compute_magnitude(partial_derivative_x, partial_derivative_y)
-        # TODO: pick a threshold for the gradient magnitude so that the number of remaining edge pixels is similar to the examples in the slides.
+        # apply the threshold to zero out extraneous magnitudes
+        edges = np.where(edges > threshold, edges, 0)  # default: no change
         
         return edges
 
 
 if __name__ == "__main__":
+    # TODO: test this class!
     ...
