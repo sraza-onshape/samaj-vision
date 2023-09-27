@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List
 
-import ops
+from .ops import convolution
 
 class GaussianFilter:
     '''A 2D Gaussian filter to use for smoothening images.'''
@@ -44,7 +44,7 @@ class GaussianFilter:
         '''Applies this Gaussian filter to an input image.'''
         if not filter:
             filter = self.create_gaussian_filter()
-        return ops.convolution(image, filter)
+        return convolution(image, filter)
 
 
 if __name__ == "__main__":
