@@ -63,7 +63,7 @@ def slide_kernel_over_image(
     conv_channel_row = list()
     # B: get the starting column
     starting_col_ndx = 0
-    while starting_col_ndx <= len(channel) - kernel_w:
+    while starting_col_ndx <= len(channel[0]) - kernel_w:
         # compute the convolution
         conv_block_of_pixels = apply_kernel(channel, kernel, row_index, starting_col_ndx)
         # add it to the output
@@ -110,9 +110,8 @@ def convolution(
     """Performs a convolution on an input image.
 
     Assumptions:
-        1. image is square
-        2. filter is square and the size is an odd number.
-        3. the filter is smaller than the image size
+        1.. filter is square and the size is an odd number.
+        2.. the filter is smaller than the image size
 
     Args:
         Image: 2D array - a grayscale raster image, aka a "pixel matrix"
@@ -126,21 +125,21 @@ def convolution(
         padded_image = list()
 
         # zero-padding
-        if type == "zero":  
-            filter_width = len(filter[0])
-            filter_half_width = filter_width // 2
+        if type == "zero":
+            # compute the # of pixels needed to pad the image (in x and y)
+            padding_dist_x = len(filter) - stride + (len(image) * (stride - 1))  # TODO[turn into helper func]
+            padding_dist_y = len(filter[0]) - stride + (len(image[0]) * (stride - 1)) # TODO[extract into helper func]
             # add the rows (at the beginning) that are all 0
-            for _ in range(filter_half_width):
-                padded_image.append([0 for _ in range(2 * filter_half_width + len(image[0]))])
+            for _ in range(padding_dist_y // 2):
+                padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
             # add the original image (extend its rows with zeros)
             for row in image:
-                zeros = [0 for _ in range(filter_half_width)]
+                zeros = [0 for _ in range(padding_dist_y // 2)]
                 padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
                 padded_image.append(padded_row)
             # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
-            for _ in range(filter_half_width):
-                padded_image.append([0 for _ in range(2 * filter_half_width + len(image[0]))])
-
+            for _ in range(padding_dist_y // 2):
+                padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
         return padded_image
 
     ### DRIVER
