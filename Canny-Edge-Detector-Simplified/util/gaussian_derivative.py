@@ -1,5 +1,6 @@
 from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from .ops import convolution as convolution_op
@@ -60,8 +61,23 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         edges = np.where(edges > threshold, edges, 0)  # default: no change
         
         return edges
+    
+    @classmethod
+    def detect_edges_and_visualize(cls,
+            image: List[List[int]],
+            image_name: str,
+            sigma: int = 1,
+            threshold: float = float('-inf')
+        ) -> np.array:
+        '''Convenience wrapper + uses Matplotlib to plot the edges found.'''
+        edge_detector = cls(sigma=sigma)
+        detected_edges = edge_detector.detect_edges(image, threshold)
+        plt.imshow(detected_edges, cmap='gray', vmin=0, vmax=255)
+        plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
+        plt.show()
+        return detected_edges
 
 
 if __name__ == "__main__":
-    # TODO: test this class!
+    # TODO: add test cases
     print("code interprets without errors")
