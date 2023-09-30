@@ -49,7 +49,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             partial_derivative_x = np.array(partial_derivative_x)
             partial_derivative_y = np.array(partial_derivative_y)
             magnitude = np.sqrt(
-                (partial_derivative_x)^2 + (partial_derivative_y)^2
+                (partial_derivative_x ** 2) + (partial_derivative_y ** 2)
             )
             return magnitude
 
@@ -64,4 +64,4 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
 
 if __name__ == "__main__":
     # TODO: test this class!
-    print("code works")
+    print("code interprets without errors")
