@@ -1,2 +1,2 @@
-from .gaussian import *
+from .gaussian_base import *
 from .ops import *

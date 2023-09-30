@@ -2,11 +2,11 @@ from typing import List
 
 import numpy as np
 
-from util import ops
-from util.gaussian import GaussianFilter 
+from .ops import convolution as convolution_op
+from .gaussian_base import BaseGaussianFilter 
 
 
-class GaussianDerivativeFilter(GaussianFilter):
+class GaussianDerivativeFilter(BaseGaussianFilter):
 
     HORIZONTAL_SOBEL_FILTER = [
         [-1, 0, 1],
@@ -29,12 +29,12 @@ class GaussianDerivativeFilter(GaussianFilter):
         '''Setter function for the partial derivatives of the iage'''
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
-        gaussian_derivative_x_filter = ops.convolution(self.filter_matrix, self.HORIZONTAL_SOBEL_FILTER)
+        gaussian_derivative_x_filter = convolution_op(self.filter_matrix, self.HORIZONTAL_SOBEL_FILTER)
         # then convolve the image with the convolved filter
-        partial_derivative_x = ops.convolution(image, gaussian_derivative_x_filter)
+        partial_derivative_x = convolution_op(image, gaussian_derivative_x_filter)
         # do the same for y
-        gaussian_derivative_y_filter = ops.convolution(self.filter_matrix, self.VERTICAL_SOBEL_FILTER)
-        partial_derivative_y = ops.convolution(image, gaussian_derivative_y_filter)
+        gaussian_derivative_y_filter = convolution_op(self.filter_matrix, self.VERTICAL_SOBEL_FILTER)
+        partial_derivative_y = convolution_op(image, gaussian_derivative_y_filter)
         return partial_derivative_x, partial_derivative_y
 
     def detect_edges(
@@ -64,4 +64,4 @@ class GaussianDerivativeFilter(GaussianFilter):
 
 if __name__ == "__main__":
     # TODO: test this class!
-    ...
+    print("code works")

@@ -1,9 +1,9 @@
 import numpy as np
 from typing import List
 
-from .ops import convolution
-
-class GaussianFilter:
+from .ops import convolution as convolution_op
+ 
+class BaseGaussianFilter:
     '''A 2D Gaussian filter to use for smoothening images.'''
     
     def __init__(self, sigma: int = 1) -> None:
@@ -44,13 +44,13 @@ class GaussianFilter:
         '''Applies this Gaussian filter to an input image.'''
         if not filter:
             filter = self.create_gaussian_filter()
-        return convolution(image, filter)
+        return convolution_op(image, filter)
 
 
 if __name__ == "__main__":
     # test out the functions, ensure the coefs sum to approx. 1
     sigma = 1
-    filter = GaussianFilter()
+    filter = BaseGaussianFilter()
     matrix = filter.create_gaussian_filter(sigma)
     print(f"Sum of values: {sum([sum(row) for row in matrix])}")
     print(f"The filter itself: {np.array(matrix)}")  # using NumPy soley for printability
