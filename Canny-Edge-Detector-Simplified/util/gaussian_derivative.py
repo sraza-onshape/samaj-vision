@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -63,7 +63,8 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         return edges
     
     @classmethod
-    def detect_edges_and_visualize(cls,
+    def detect_edges_and_visualize(
+            cls: 'GaussianDerivativeFilter',
             image: List[List[int]],
             image_name: str,
             sigma: int = 1,
@@ -76,7 +77,78 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
         plt.show()
         return detected_edges
+    
+    def suppress_edge_pixels(
+        self,
+        original_image: List[List[int]],
+        edge_image: np.array
+    ) -> np.array:
+        '''Implement non-maximum suppression.'''
+        ### HELPERS
+        def _find_neighbors(x, y, theta) -> List[Tuple[int, int]]:
+            '''Returns the coordinates of the neighboring pixels, or None if out of bounds.'''
+            lower_px_indices, higher_px_indices = None, None
+            # edge is vertical, get left-right neighbors
+            if ((3/8) <= theta < (5/8)) or ((11/8) <= theta < (13/8)):
+                lower_px_indices = (x - 1, y)
+                higher_px_indices = (x + 1, y)
+            # edge is horizontal, get up-down neighbors
+            elif (theta >= (15/8)) or (theta < (1/8)) or ((7/8) <= theta < (9/8)):
+                lower_px_indices = (x, y - 1)
+                higher_px_indices = (x, y + 1)
+            # edge is right-left diagonal, get left-right diagonal neighbors
+            elif ((1/8) <= theta < (3/8)) or ((9/8) < theta < (11/8)):
+                lower_px_indices = (x - 1, y - 1)
+                higher_px_indices = (x + 1, y + 1)
+            # edge is left-right diagonal, get right-left diagonal neighors
+            else:
+                lower_px_indices = (x + 1, y + 1)
+                higher_px_indices = (x - 1, y - 1)
 
+            # last thing: if neighbor indices out of bounds, return None instead
+            final_output = list()
+            for coords in [lower_px_indices, higher_px_indices]:
+                if (-1 < coords[0] < edge_image.shape[0] 
+                    and 
+                    -1 < coords[1] < edge_image.shape[1]):
+                    final_output.append(coords)
+                else:
+                    final_output.append(None)
+
+        ### DRIVER
+        # A: compute image gradient
+        partial_derivative_x, partial_derivative_y = self._compute_derivatives(original_image)
+        # B: compute orientation of gradient
+        # TODO: check for ZeroDivisionError, and that values between 0 - 2pi?
+        orientation_image = (
+            np.arctan2(partial_derivative_y, partial_derivative_x) + 
+            (2*np.pi) / np.pi
+        )
+        suppressed = edge_image.copy()
+        # C: formulate the suppressed version of the edge image
+        for index_row in range(edge_image.shape[0]):
+            for index_col in range(edge_image[1]):
+                edge_px = edge_image[index_row][index_col]
+                if edge_px > 0:
+                    # get neighboring pixels
+                    gradient_angle = orientation_image[index_row][index_row]
+                    lower_px_indices, higher_px_indices = _find_neighbors(
+                        index_row, index_col, gradient_angle
+                    )
+                    lower_px = 0
+                    if lower_px_indices is not None:
+                        lower_px = edge_image[lower_px_indices[0]][lower_px_indices[1]]
+                    higher_px = 0
+                    if higher_px_indices is not None:
+                        higher_px = edge_image[higher_px_indices[0]][higher_px_indices[1]]
+                    # eliminate the neighboring pixels?
+                    if edge_px > lower_px and edge_px > higher_px:
+                        suppressed[lower_px_indices[0]][lower_px_indices[1]] = 0
+                        suppressed[higher_px_indices[0]][higher_px_indices[1]] = 0
+                    # eliminate the pixel itself?
+                    else:
+                        suppressed[index_row][index_col] = 0
+        return suppressed
 
 if __name__ == "__main__":
     # TODO: add test cases
