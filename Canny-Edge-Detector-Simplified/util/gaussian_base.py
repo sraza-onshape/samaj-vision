@@ -39,12 +39,13 @@ class BaseGaussianFilter:
     def smooth(
         self, 
         image: List[List[float]], 
-        filter: List[List[float]] = None
+        filter: List[List[float]] = None,
+        padding_type="zero"
     ) -> List[List[float]]:
         '''Applies this Gaussian filter to an input image.'''
         if not filter:
             filter = self.create_gaussian_filter()
-        return convolution_op(image, filter)
+        return convolution_op(image, filter, padding_type=padding_type)
 
 
 if __name__ == "__main__":

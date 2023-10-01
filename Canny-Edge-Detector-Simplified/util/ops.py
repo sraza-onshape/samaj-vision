@@ -105,30 +105,34 @@ def convolution(
     image: List[List[float]], 
     filter: List[List[float]], 
     stride=1,
-    padding="SAME"
+    padding_type="repeat"
 ) -> List[List[float]]:
     """Performs a convolution on an input image.
+    
+    Padding is used to ensure the output had the same dims as the input.
 
     Assumptions:
-        1.. filter is square and the size is an odd number.
-        2.. the filter is smaller than the image size
+        1. filter is square and the size is an odd number.
+        2. the filter is smaller than the image size
 
     Args:
-        Image: 2D array - a grayscale raster image, aka a "pixel matrix"
+        image: 2D array - a grayscale raster image, aka a "pixel matrix"
         filter: 2D array representing the parameters to use
         stride: int - using the same stride length for both directions
+        padding_type: str - one of either 'zero' or 'repeat'
 
     Returns: np.array: a new RGB image
     """
     ### HELPER
-    def _pad(image: List[List[float]], type: str = "zero") -> List[List[float]]:
+    def _pad(image: List[List[float]], padding_type: str) -> List[List[float]]:
         padded_image = list()
 
+        # compute the # of pixels needed to pad the image (in x and y)
+        padding_dist_x = len(filter) - stride + (len(image) * (stride - 1))  # TODO[turn into helper func]
+        padding_dist_y = len(filter[0]) - stride + (len(image[0]) * (stride - 1)) # TODO[extract into helper func]
+
         # zero-padding
-        if type == "zero":
-            # compute the # of pixels needed to pad the image (in x and y)
-            padding_dist_x = len(filter) - stride + (len(image) * (stride - 1))  # TODO[turn into helper func]
-            padding_dist_y = len(filter[0]) - stride + (len(image[0]) * (stride - 1)) # TODO[extract into helper func]
+        if padding_type == "zero":
             # add the rows (at the beginning) that are all 0
             for _ in range(padding_dist_y // 2):
                 padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
@@ -140,11 +144,40 @@ def convolution(
             # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
             for _ in range(padding_dist_y // 2):
                 padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
+
+        # replicate boundary pixels
+        elif padding_type == "repeat":
+            padded_image = np.zeros((len(image) + padding_dist_y, len(image[0]) + padding_dist_x))
+            side_padding_y, side_padding_x = padding_dist_y // 2, padding_dist_x // 2
+            print(padding_dist_x, side_padding_x, padding_dist_y, side_padding_y)
+            # fill corners
+            padded_image[0:side_padding_y][0:side_padding_x] = image[0][0]  # top-left
+            padded_image[0:side_padding_y][side_padding_x + len(image[0]):] = image[0][-1]  # top-right
+            padded_image[side_padding_y + len(image):][0:side_padding_x] = image[-1][0]  # bottom-left
+            padded_image[side_padding_y + len(image):][side_padding_x + len(image[0]):] = image[-1][-1]  # bottom-right
+            # fill in the pixels in the 4 cardinal directions
+            padded_image[0:side_padding_y][side_padding_x:side_padding_x + len(image[0])] = np.repeat(
+                image[0], side_padding_y  # fills the pixels above the first rows
+            )
+            padded_image[side_padding_y + len(image):][side_padding_x:side_padding_x + len(image[0])] = np.repeat(
+                image[-1], side_padding_y  # fills the pixels below the last rows
+            )
+            # fills the pixels to the left of the first col
+            padded_image[side_padding_y:side_padding_y + len(image)][0:side_padding_x] = np.repeat(
+                image[:][0], side_padding_x
+            ).T
+            # fills the pixels to the right of the last col
+            padded_image[side_padding_y:side_padding_y + len(image)][side_padding_x + len(image[0]):] = np.repeat(
+                image[:][-1], side_padding_x
+            ).T
+            # fill in the center - "easiest part"
+            padded_image[side_padding_y:side_padding_y + len(image)][side_padding_x:side_padding_x + len(image[0])] = (
+                image
+            )
         return padded_image
 
     ### DRIVER
-    if padding == "SAME":
-        image = _pad(image)
+    image = _pad(image, padding_type)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
 
