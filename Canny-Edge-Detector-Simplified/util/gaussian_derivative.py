@@ -62,22 +62,6 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         
         return edges
     
-    @classmethod
-    def detect_edges_and_visualize(
-            cls: 'GaussianDerivativeFilter',
-            image: List[List[int]],
-            image_name: str,
-            sigma: int = 1,
-            threshold: float = float('-inf')
-        ) -> np.array:
-        '''Convenience wrapper + uses Matplotlib to plot the edges found.'''
-        edge_detector = cls(sigma=sigma)
-        detected_edges = edge_detector.detect_edges(image, threshold)
-        plt.imshow(detected_edges, cmap='gray', vmin=0, vmax=255)
-        plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
-        plt.show()
-        return detected_edges
-    
     def suppress_edge_pixels(
         self,
         original_image: List[List[int]],
@@ -114,6 +98,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
                     final_output.append(coords)
                 else:
                     final_output.append(None)
+            return final_output
 
         ### DRIVER
         # A: compute image gradient
@@ -124,14 +109,23 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             np.arctan2(partial_derivative_y, partial_derivative_x) + 
             (2*np.pi) / np.pi
         )
-        suppressed = edge_image.copy()
+        orientation_image = np.arctan2(partial_derivative_y, partial_derivative_x)
+        # constrain the values to the 0-2pi range
+        orientation_image = np.where(
+            orientation_image < 0,
+            orientation_image + (2 * np.pi),
+            orientation_image
+        )
+        # reduce the angle measures to coefficients of pi
+        orientation_image /= np.pi
         # C: formulate the suppressed version of the edge image
+        suppressed = edge_image.copy()
         for index_row in range(edge_image.shape[0]):
-            for index_col in range(edge_image[1]):
+            for index_col in range(edge_image.shape[1]):
                 edge_px = edge_image[index_row][index_col]
                 if edge_px > 0:
                     # get neighboring pixels
-                    gradient_angle = orientation_image[index_row][index_row]
+                    gradient_angle = orientation_image[index_row][index_col]
                     lower_px_indices, higher_px_indices = _find_neighbors(
                         index_row, index_col, gradient_angle
                     )
@@ -143,12 +137,44 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
                         higher_px = edge_image[higher_px_indices[0]][higher_px_indices[1]]
                     # eliminate the neighboring pixels?
                     if edge_px > lower_px and edge_px > higher_px:
-                        suppressed[lower_px_indices[0]][lower_px_indices[1]] = 0
-                        suppressed[higher_px_indices[0]][higher_px_indices[1]] = 0
+                        if lower_px_indices is not None:
+                            suppressed[lower_px_indices[0]][lower_px_indices[1]] = 0
+                        if higher_px_indices is not None:
+                            suppressed[higher_px_indices[0]][higher_px_indices[1]] = 0
                     # eliminate the pixel itself?
                     else:
                         suppressed[index_row][index_col] = 0
         return suppressed
+    
+    @classmethod
+    def detect_edges_and_visualize(
+            cls: 'GaussianDerivativeFilter',
+            image: List[List[int]],
+            image_name: str,
+            sigma: int = 1,
+            threshold: float = float('-inf'),
+            use_non_max_suppression: bool = False
+        ) -> np.array:
+        """Convenience wrapper + uses Matplotlib to plot the edges found.
+
+           Returns: np.array: the edges detected. If non-max supression is set to True, 
+                    the return matrix will have utilized non-max suppression.
+        """
+        edge_detector = cls(sigma=sigma)
+        return_image = detected_edges = edge_detector.detect_edges(image, threshold)
+
+        if not use_non_max_suppression:
+            plt.imshow(detected_edges, cmap='gray', vmin=0, vmax=255)
+            plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
+        else:
+            return_image = suppressed_edges = edge_detector.suppress_edge_pixels(
+                image, detected_edges
+            )
+            plt.imshow(suppressed_edges, cmap='gray', vmin=0, vmax=255)
+            plt.title(f"{image_name} Edges (w/ Non-max Suppression), sigma={sigma}, threshold={threshold}")
+        plt.show()
+        return return_image
+
 
 if __name__ == "__main__":
     # TODO: add test cases
