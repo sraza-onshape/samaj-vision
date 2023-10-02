@@ -148,44 +148,24 @@ def convolution(
         # replicate boundary pixels
         elif padding_type == "repeat":
             padded_image = np.zeros((len(image) + padding_dist_y, len(image[0]) + padding_dist_x))
-            print(padded_image.shape)
             side_padding_y, side_padding_x = padding_dist_y // 2, padding_dist_x // 2
-            print(len(image), len(image[0]))
-            print(padding_dist_x, side_padding_x, padding_dist_y, side_padding_y)
-            print(padded_image[0:side_padding_y+1][side_padding_x:side_padding_x + len(image[0])].shape)
             # fill corners
             padded_image[0:side_padding_y][0:side_padding_x] = image[0][0]  # top-left
             padded_image[0:side_padding_y][side_padding_x + len(image[0]):] = image[0][-1]  # top-right
             padded_image[side_padding_y + len(image):][0:side_padding_x] = image[-1][0]  # bottom-left
             padded_image[side_padding_y + len(image):][side_padding_x + len(image[0]):] = image[-1][-1]  # bottom-right
-            # fill in the pixels in the 4 cardinal directions
-            # padded_image[0:side_padding_y][0][side_padding_x:side_padding_x + len(image[0])] = np.repeat(
-            #     image[0], side_padding_y  # fills the pixels above the first rows
-            # ).reshape((side_padding_y, len(image[0])))
+            # fill in the pixels above the top rows
             for row_index in range(0, side_padding_y):
                 padded_image[row_index][side_padding_x:side_padding_x + len(image[0])] = image[0][:]
-            # padded_image[side_padding_y + len(image):][0][side_padding_x:side_padding_x + len(image[0])] = np.repeat(
-            #     image[-1], side_padding_y  # fills the pixels below the last rows
-            # ).reshape((side_padding_y, len(image[0])))
+            # fills the pixels below the last rows
             for row_index in range(side_padding_y + len(image), padded_image.shape[0]):
                 padded_image[row_index][side_padding_x:side_padding_x + len(image[0])] = image[-1][:]
-            # padded_image[side_padding_y + len(image):][0][side_padding_x:side_padding_x + len(image[0])] = np.repeat(
-            #     image[-1], side_padding_y  # fills the pixels below the last rows
-            # ).reshape((side_padding_y, len(image[0])))
             # fills the pixels to the left of the first col
             for row_index in range(len(image)):
                 padded_image[side_padding_y:side_padding_y + len(image)][row_index][0:side_padding_x] = image[row_index][0]
-            # TODO[delete next 3 lines later]
-            #     np.repeat(
-            #     image[row_index][0], side_padding_x
-            # ).T
             # fills the pixels to the right of the last col
             for row_index in range(len(image)):
                 padded_image[side_padding_y:side_padding_y + len(image)][row_index][side_padding_x + len(image[0]):] = image[row_index][-1]
-            # TODO[delete next 3 lines later]
-            # padded_image[side_padding_y:side_padding_y + len(image)][:len(image)][side_padding_x + len(image[0]):] = np.repeat(
-            #     image[:][-1], side_padding_x
-            # ).T
             # fill in the center - "easiest part"
             for row_index in range(len(image)):
                 padded_image[side_padding_y:side_padding_y + len(image)][row_index][side_padding_x:side_padding_x + len(image[0])] = image[row_index][:]

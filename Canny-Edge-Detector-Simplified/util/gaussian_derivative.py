@@ -26,22 +26,34 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         # create the 2D Gaussian filter
         self.filter_matrix = self.create_gaussian_filter(self.sigma)
 
-    def _compute_derivatives(self, image: List[List[float]]) -> None:
+    def _compute_derivatives(
+            self,
+            image: List[List[float]],
+            padding_type: str = "zero"
+        ) -> None:
         '''Setter function for the partial derivatives of the iage'''
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
-        gaussian_derivative_x_filter = convolution_op(self.filter_matrix, self.HORIZONTAL_SOBEL_FILTER)
+        gaussian_derivative_x_filter = convolution_op(self.filter_matrix,
+                                                      self.HORIZONTAL_SOBEL_FILTER,
+                                                      padding_type=padding_type)
         # then convolve the image with the convolved filter
-        partial_derivative_x = convolution_op(image, gaussian_derivative_x_filter)
+        partial_derivative_x = convolution_op(image,
+                                              gaussian_derivative_x_filter,
+                                              padding_type=padding_type)
         # do the same for y
-        gaussian_derivative_y_filter = convolution_op(self.filter_matrix, self.VERTICAL_SOBEL_FILTER)
-        partial_derivative_y = convolution_op(image, gaussian_derivative_y_filter)
+        gaussian_derivative_y_filter = convolution_op(self.filter_matrix,
+                                                      self.VERTICAL_SOBEL_FILTER,
+                                                      padding_type=padding_type)
+        partial_derivative_y = convolution_op(image, gaussian_derivative_y_filter,
+                                              padding_type=padding_type)
         return partial_derivative_x, partial_derivative_y
 
     def detect_edges(
             self,
             image: List[List[int]],
-            threshold: float = float("-inf")
+            threshold: float = float("-inf"),
+            padding_type: str = "zero"
         ) -> np.array:
         '''Do edge detection: use the convolved images in the magnitude formula --> visualize it'''
         ### HELPERS
@@ -55,7 +67,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             return magnitude
 
         ### DRIVER
-        partial_derivative_x, partial_derivative_y = self._compute_derivatives(image)
+        partial_derivative_x, partial_derivative_y = self._compute_derivatives(image, padding_type=padding_type)
         edges = _compute_magnitude(partial_derivative_x, partial_derivative_y)
         # apply the threshold to zero out extraneous magnitudes
         edges = np.where(edges > threshold, edges, 0)  # default: no change
@@ -65,7 +77,8 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
     def suppress_edge_pixels(
         self,
         original_image: List[List[int]],
-        edge_image: np.array
+        edge_image: np.array,
+        padding_type: str = "zero"
     ) -> np.array:
         '''Implement non-maximum suppression.'''
         ### HELPERS
@@ -102,9 +115,8 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
 
         ### DRIVER
         # A: compute image gradient
-        partial_derivative_x, partial_derivative_y = self._compute_derivatives(original_image)
+        partial_derivative_x, partial_derivative_y = self._compute_derivatives(original_image, padding_type=padding_type)
         # B: compute orientation of gradient
-        # TODO: check for ZeroDivisionError, and that values between 0 - 2pi?
         orientation_image = (
             np.arctan2(partial_derivative_y, partial_derivative_x) + 
             (2*np.pi) / np.pi
@@ -153,7 +165,8 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             image_name: str,
             sigma: int = 1,
             threshold: float = float('-inf'),
-            use_non_max_suppression: bool = False
+            use_non_max_suppression: bool = False,
+            padding_type: str = "zero"
         ) -> np.array:
         """Convenience wrapper + uses Matplotlib to plot the edges found.
 
@@ -161,14 +174,14 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
                     the return matrix will have utilized non-max suppression.
         """
         edge_detector = cls(sigma=sigma)
-        return_image = detected_edges = edge_detector.detect_edges(image, threshold)
+        return_image = detected_edges = edge_detector.detect_edges(image, threshold, padding_type=padding_type)
 
         if not use_non_max_suppression:
             plt.imshow(detected_edges, cmap='gray', vmin=0, vmax=255)
             plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
         else:
             return_image = suppressed_edges = edge_detector.suppress_edge_pixels(
-                image, detected_edges
+                image, detected_edges, padding_type=padding_type
             )
             plt.imshow(suppressed_edges, cmap='gray', vmin=0, vmax=255)
             plt.title(f"{image_name} Edges (w/ Non-max Suppression), sigma={sigma}, threshold={threshold}")
