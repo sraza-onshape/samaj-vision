@@ -1,6 +1,21 @@
 import numpy as np
+from PIL import Image
 from typing import List
 
+
+def load_pgm(filename: str) -> List[List[int]]:
+    '''Allows us to convert images from its binary form to a 2D list representing the grayscale image.'''
+    with Image.open(filename) as img:
+        # Convert the image to grayscale
+        img = img.convert('L')
+
+        # Get image data as a list of lists (2D list)
+        image_data = list(img.getdata())
+        width, height = img.size
+        print(f"Dimensions of {filename}: {width} x {height}")
+        image_data = [image_data[i * width: (i + 1) * width] for i in range(height)]
+
+    return image_data
 
 def convolve_matrices(
     matrix1: List[List[float]], matrix2: List[List[float]]
