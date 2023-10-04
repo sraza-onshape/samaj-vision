@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from typing import List
 
@@ -46,6 +47,25 @@ class BaseGaussianFilter:
         if not filter:
             filter = self.create_gaussian_filter()
         return convolution_op(image, filter, padding_type=padding_type)
+    
+    @classmethod
+    def smooth_image_and_visualize(
+            cls: 'BaseGaussianFilter',
+            image: List[List[int]],
+            image_name: str,
+            sigma: int = 1,
+            padding_type: str = "zero"
+        ) -> np.array:
+        """Convenience wrapper + uses Matplotlib to plot the smoothed image.
+
+           Returns: np.array: the output image. Will have same dimensions as the input.
+        """
+        smoother = cls(sigma=sigma)
+        filtered_image = smoother.smooth(image, padding_type=padding_type)
+        plt.imshow(filtered_image, cmap='gray', vmin=0, vmax=255)
+        plt.title(f"{image_name} after Filtering (w/ Gaussian Kernel), sigma={sigma}")
+        plt.show()
+        return filtered_image
 
 
 if __name__ == "__main__":
