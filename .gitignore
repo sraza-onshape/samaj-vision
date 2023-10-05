@@ -12,6 +12,7 @@ __pycache__/
 # OS and editor
 .vscode
 .DS_Store
+submissions/*
 
 # Distribution / packaging
 .Python
