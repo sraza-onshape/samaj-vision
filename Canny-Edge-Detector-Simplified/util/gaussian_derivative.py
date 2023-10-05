@@ -30,7 +30,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             self,
             image: List[List[float]],
             padding_type: str = "zero"
-        ) -> None:
+        ) -> Tuple[List[List[float]]]:
         '''Setter function for the partial derivatives of the iage'''
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
@@ -76,9 +76,9 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
     
     def suppress_edge_pixels(
         self,
-        original_image: List[List[int]],
+        partial_derivative_x: List[List[float]], 
+        partial_derivative_y: List[List[float]],
         edge_image: np.array,
-        padding_type: str = "zero"
     ) -> np.array:
         '''Implement non-maximum suppression.'''
         ### HELPERS
@@ -114,9 +114,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             return final_output
 
         ### DRIVER
-        # A: compute image gradient
-        partial_derivative_x, partial_derivative_y = self._compute_derivatives(original_image, padding_type=padding_type)
-        # B: compute orientation of gradient
+        # compute orientation of gradient
         orientation_image = (
             np.arctan2(partial_derivative_y, partial_derivative_x) + 
             (2*np.pi) / np.pi
@@ -180,8 +178,13 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
             plt.imshow(detected_edges, cmap='gray', vmin=0, vmax=255)
             plt.title(f"{image_name} Edges, sigma={sigma}, threshold={threshold}")
         else:
+            partial_derivative_x, partial_derivative_y = edge_detector._compute_derivatives(
+                image, padding_type=padding_type
+            )
             return_image = suppressed_edges = edge_detector.suppress_edge_pixels(
-                image, detected_edges, padding_type=padding_type
+                partial_derivative_x,
+                partial_derivative_y,
+                detected_edges,
             )
             plt.imshow(suppressed_edges, cmap='gray', vmin=0, vmax=255)
             plt.title(f"{image_name} Edges (w/ Non-max Suppression), sigma={sigma}, threshold={threshold}")
