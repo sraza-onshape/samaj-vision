@@ -20,8 +20,8 @@ def main():
         "--data",
         type=str,
         required=False,
-        default="./original_images_cs558_bw1/plane.pgm",
-        help="Path to input images."
+        default="./original_images_cs558_hw1/plane.pgm",
+        help="Path to input image. Can only pass 1 file path at a time (for now at least)."
     )
     parser.add_argument(
         "--image_name",
