@@ -3,54 +3,47 @@ from PIL import Image
 from typing import List
 
 
-HORIZONTAL_SOBEL_FILTER = [
-    [-1, 0, 1],
-    [-2, 0, 2],
-    [-1, 0, 1]
-]
+HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
 
-VERTICAL_SOBEL_FILTER = [
-    [-1, -2, -1],
-    [0,  0,  0],
-    [1,  2,  1]
-]
+VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
 
 def load_pgm(filename: str) -> List[List[int]]:
-    '''Allows us to convert images from its binary form to a 2D list representing the grayscale image.'''
+    """Allows us to convert images from its binary form to a 2D list representing the grayscale image."""
     with Image.open(filename) as img:
         # Convert the image to grayscale
-        img = img.convert('L')
+        img = img.convert("L")
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())
         width, height = img.size
         print(f"Dimensions of {filename}: {width} x {height}")
-        image_data = [image_data[i * width: (i + 1) * width] for i in range(height)]
+        image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
 
     return image_data
 
-def convolve_matrices(
-    matrix1: List[List[float]], matrix2: List[List[float]]
-) -> float:
-    '''asumes both matrices have the same, non-zero dimensions'''
+
+def convolve_matrices(matrix1: List[List[float]], matrix2: List[List[float]]) -> float:
+    """asumes both matrices have the same, non-zero dimensions"""
     width, height = len(matrix1[0]), len(matrix1)
-    
+
     product = 0
 
     for row_i in range(height):
-       for col_i in range(width):
-        product += (matrix1[row_i][col_i] * matrix2[row_i][col_i])
+        for col_i in range(width):
+            product += matrix1[row_i][col_i] * matrix2[row_i][col_i]
 
     return product
 
+
 def apply_kernel(
-        channel: List[List[float]],
-        kernel: List[List[float]], 
-        row_index: int, col_index: int
-    ) -> float:
+    channel: List[List[float]],
+    kernel: List[List[float]],
+    row_index: int,
+    col_index: int,
+) -> float:
     """Applies the 2D kernel to 1 block of pixels on the image.
-    
+
     Args:
         channel: 2D array - one of the channels of the input image
         kernel: 2D array representing the parameters to use
@@ -63,27 +56,25 @@ def apply_kernel(
     kernel_h, kernel_w = len(kernel), len(kernel[0])
     # B: get the block of pixels needed for the convolution
     block_of_pixels = [
-        row[col_index:(kernel_w + col_index)]
-        for row in channel[row_index:(kernel_h + row_index)]
+        row[col_index : (kernel_w + col_index)]
+        for row in channel[row_index : (kernel_h + row_index)]
     ]
     # C: compute the convolution
     return convolve_matrices(block_of_pixels, kernel)
 
 
 def slide_kernel_over_image(
-    channel: List[List[float]],
-    kernel: List[List[float]], 
-    row_index: int, stride: int
+    channel: List[List[float]], kernel: List[List[float]], row_index: int, stride: int
 ) -> List[float]:
     """Applies the 2D kernel across the columns of 1 image channel.
-    
+
     Args:
         channel: 2D array - one of the channels of the input image
         kernel: 2D array representing the parameters to use
         row_index, col_index: int: the coordinates of the upper left corner
                             of the block of pixels being convolved
 
-    Returns: np.array: 1D array of the resulting values from performing 
+    Returns: np.array: 1D array of the resulting values from performing
                         the convolution at each "block" of pixels on the channel
     """
     # A: define useful vars + output
@@ -93,7 +84,9 @@ def slide_kernel_over_image(
     starting_col_ndx = 0
     while starting_col_ndx <= len(channel[0]) - kernel_w:
         # compute the convolution
-        conv_block_of_pixels = apply_kernel(channel, kernel, row_index, starting_col_ndx)
+        conv_block_of_pixels = apply_kernel(
+            channel, kernel, row_index, starting_col_ndx
+        )
         # add it to the output
         conv_channel_row.append(conv_block_of_pixels)
         # move on to the next starting column, using the stride
@@ -102,9 +95,7 @@ def slide_kernel_over_image(
 
 
 def convolve_2D(
-    channel: List[List[float]],
-    kernel: List[List[float]],
-    stride: int
+    channel: List[List[float]], kernel: List[List[float]], stride: int
 ) -> List[List[float]]:
     """Performs a 2D convolution over 1 channel.
 
@@ -121,8 +112,10 @@ def convolve_2D(
     starting_row_ndx = 0
     while starting_row_ndx <= len(channel) - kernel_h:
         # convolve the next row of this channel
-        conv_channel_row = slide_kernel_over_image(channel, kernel, starting_row_ndx, stride)
-        # now, add the convolved row to the list 
+        conv_channel_row = slide_kernel_over_image(
+            channel, kernel, starting_row_ndx, stride
+        )
+        # now, add the convolved row to the list
         conv_channel.append(conv_channel_row)
         # move to the next starting row for the convolutions
         starting_row_ndx += stride
@@ -130,13 +123,10 @@ def convolve_2D(
 
 
 def convolution(
-    image: List[List[float]], 
-    filter: List[List[float]], 
-    stride=1,
-    padding_type="repeat"
+    image: List[List[float]], filter: List[List[float]], stride=1, padding_type="repeat"
 ) -> List[List[float]]:
     """Performs a convolution on an input image.
-    
+
     Padding is used to ensure the output had the same dims as the input.
 
     Assumptions:
@@ -151,13 +141,18 @@ def convolution(
 
     Returns: np.array: a new RGB image
     """
+
     ### HELPER
     def _pad(image: List[List[float]], padding_type: str) -> List[List[float]]:
         padded_image = list()
 
         # compute the # of pixels needed to pad the image (in x and y)
-        padding_dist_x = len(filter) - stride + (len(image) * (stride - 1))  # TODO[turn into helper func]
-        padding_dist_y = len(filter[0]) - stride + (len(image[0]) * (stride - 1)) # TODO[extract into helper func]
+        padding_dist_x = (
+            len(filter) - stride + (len(image) * (stride - 1))
+        )  # TODO[turn into helper func]
+        padding_dist_y = (
+            len(filter[0]) - stride + (len(image[0]) * (stride - 1))
+        )  # TODO[extract into helper func]
 
         # zero-padding
         if padding_type == "zero":
@@ -175,34 +170,55 @@ def convolution(
 
         # replicate boundary pixels
         elif padding_type == "repeat":
-            padded_image = np.zeros((len(image) + padding_dist_y, len(image[0]) + padding_dist_x))
+            padded_image = np.zeros(
+                (len(image) + padding_dist_y, len(image[0]) + padding_dist_x)
+            )
             side_padding_y, side_padding_x = padding_dist_y // 2, padding_dist_x // 2
             # fill corners
             padded_image[0:side_padding_y][0:side_padding_x] = image[0][0]  # top-left
-            padded_image[0:side_padding_y][side_padding_x + len(image[0]):] = image[0][-1]  # top-right
-            padded_image[side_padding_y + len(image):][0:side_padding_x] = image[-1][0]  # bottom-left
-            padded_image[side_padding_y + len(image):][side_padding_x + len(image[0]):] = image[-1][-1]  # bottom-right
+            padded_image[0:side_padding_y][side_padding_x + len(image[0]) :] = image[0][
+                -1
+            ]  # top-right
+            padded_image[side_padding_y + len(image) :][0:side_padding_x] = image[-1][
+                0
+            ]  # bottom-left
+            padded_image[side_padding_y + len(image) :][
+                side_padding_x + len(image[0]) :
+            ] = image[-1][
+                -1
+            ]  # bottom-right
             # fill in the pixels above the top rows
             for row_index in range(0, side_padding_y):
-                padded_image[row_index][side_padding_x:side_padding_x + len(image[0])] = image[0][:]
+                padded_image[row_index][
+                    side_padding_x : side_padding_x + len(image[0])
+                ] = image[0][:]
             # fills the pixels below the last rows
             for row_index in range(side_padding_y + len(image), padded_image.shape[0]):
-                padded_image[row_index][side_padding_x:side_padding_x + len(image[0])] = image[-1][:]
+                padded_image[row_index][
+                    side_padding_x : side_padding_x + len(image[0])
+                ] = image[-1][:]
             # fills the pixels to the left of the first col
             for row_index in range(len(image)):
-                padded_image[side_padding_y:side_padding_y + len(image)][row_index][0:side_padding_x] = image[row_index][0]
+                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                    0:side_padding_x
+                ] = image[row_index][0]
             # fills the pixels to the right of the last col
             for row_index in range(len(image)):
-                padded_image[side_padding_y:side_padding_y + len(image)][row_index][side_padding_x + len(image[0]):] = image[row_index][-1]
+                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                    side_padding_x + len(image[0]) :
+                ] = image[row_index][-1]
             # fill in the center - "easiest part"
             for row_index in range(len(image)):
-                padded_image[side_padding_y:side_padding_y + len(image)][row_index][side_padding_x:side_padding_x + len(image[0])] = image[row_index][:]
+                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                    side_padding_x : side_padding_x + len(image[0])
+                ] = image[row_index][:]
         return padded_image
 
     ### DRIVER
     image = _pad(image, padding_type)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
+
 
 if __name__ == "__main__":
     # a few small test cases
@@ -211,7 +227,6 @@ if __name__ == "__main__":
     fake_filter = np.ones(1).reshape(1, 1)
     even_sized = np.arange(4).reshape(2, 2) + 1
 
-    
     # print(convolution(matrix1.tolist(), fake_filter.tolist()))  # ✅ no padding used
     # print(convolution(matrix1.tolist(), matrix1.tolist()))  # ✅ padding used
     # print(convolution(even_sized.tolist(), fake_filter.tolist()))  # ✅ no padding used
