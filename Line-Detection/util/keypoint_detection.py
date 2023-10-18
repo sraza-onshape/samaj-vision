@@ -34,16 +34,16 @@ class HessianDetector(AbstractKeypointDetector):
             second_order_derivator_y,
             second_order_derivator_xy,
         ) = (
-            convolution_op(HORIZONTAL_SOBEL_FILTER, HORIZONTAL_SOBEL_FILTER),
-            convolution_op(VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER),
-            convolution_op(HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER)
+            convolution_op(HORIZONTAL_SOBEL_FILTER, HORIZONTAL_SOBEL_FILTER, padding_type="zero"),
+            convolution_op(VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"),
+            convolution_op(HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero")
         )
 
         # formulate the Hessian matrix 
         image_list = image.tolist()
-        hessian_xx = convolution_op(image_list, second_order_derivator_x)
-        hessian_xy = convolution_op(image_list, second_order_derivator_xy)
-        hessian_yy = convolution_op(image_list, second_order_derivator_y)
+        hessian_xx = convolution_op(image_list, second_order_derivator_x, padding_type="zero")
+        hessian_xy = convolution_op(image_list, second_order_derivator_xy, padding_type="zero")
+        hessian_yy = convolution_op(image_list, second_order_derivator_y, padding_type="zero")
 
         matrix = np.array([
             [hessian_xx, hessian_xy],
@@ -64,11 +64,23 @@ class HessianDetector(AbstractKeypointDetector):
         return keypoints
 
     @classmethod
-    def find_keypoints_and_visualize(cls: "HessianDetector"):
-        # TODO
-        pass
+    def find_keypoints_and_visualize(
+        cls: "HessianDetector",
+        image: np.array,
+        image_name: str,
+        threshold: float = None,
+    ) -> None:
+        # run the algorithm
+        keypoint_detector = cls(sigma=threshold)
+        keypoints = keypoint_detector.find_keypoints(image)
+        # show the results
+        plt.imshow(image, cmap='gray')
+        # overlay the keypoints
+        plt.scatter(keypoints[1], keypoints[0], color='red', s=5)
+        plt.title(f"Keypoints Detected for Image: \"{image_name}\"")
+        plt.show()
 
 
 if __name__ == "__main__":
-    # TODO: add test cases
+    # TODO: add test cases for find_keypoints_and_visualize()
     ...
