@@ -17,10 +17,10 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         self.filter_matrix = self.create_gaussian_filter(self.sigma)
 
     def _compute_derivatives(
-            self,
-            image: List[List[float]],
-            padding_type: str = "zero"
-        ) -> Tuple[List[List[float]]]:
+        self,
+        image: List[List[float]],
+        padding_type: str = "zero"
+    ) -> Tuple[List[List[float]]]:
         '''Setter function for the partial derivatives of the iage'''
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
@@ -40,11 +40,11 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         return partial_derivative_x, partial_derivative_y
 
     def detect_edges(
-            self,
-            image: List[List[int]],
-            threshold: float = float("-inf"),
-            padding_type: str = "zero"
-        ) -> np.array:
+        self,
+        image: List[List[int]],
+        threshold: float = float("-inf"),
+        padding_type: str = "zero"
+    ) -> np.array:
         '''Do edge detection: use the convolved images in the magnitude formula --> visualize it'''
         ### HELPERS
         def _compute_magnitude(partial_derivative_x, partial_derivative_y):
@@ -148,14 +148,14 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
     
     @classmethod
     def detect_edges_and_visualize(
-            cls: 'GaussianDerivativeFilter',
-            image: List[List[int]],
-            image_name: str,
-            sigma: int = 1,
-            threshold: float = float('-inf'),
-            use_non_max_suppression: bool = False,
-            padding_type: str = "zero"
-        ) -> np.array:
+        cls: 'GaussianDerivativeFilter',
+        image: List[List[int]],
+        image_name: str,
+        sigma: int = 1,
+        threshold: float = float('-inf'),
+        use_non_max_suppression: bool = False,
+        padding_type: str = "zero"
+    ) -> np.array:
         """Convenience wrapper + uses Matplotlib to plot the edges found.
 
            Returns: np.array: the edges detected. If non-max supression is set to True, 
