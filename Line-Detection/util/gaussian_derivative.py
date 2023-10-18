@@ -4,23 +4,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .ops import convolution as convolution_op
+from .ops import HORIZONTAL_SOBEL_FILTER
+from .ops import VERTICAL_SOBEL_FILTER
+
 from .gaussian_base import BaseGaussianFilter 
 
 
 class GaussianDerivativeFilter(BaseGaussianFilter):
-
-    HORIZONTAL_SOBEL_FILTER = [
-        [-1, 0, 1],
-        [-2, 0, 2],
-        [-1, 0, 1]
-    ]
-
-    VERTICAL_SOBEL_FILTER = [
-        [-1, -2, -1],
-        [0,  0,  0],
-        [1,  2,  1]
-    ]
-
     def __init__(self, sigma: int = 1) -> None:
         super().__init__(sigma)
         # create the 2D Gaussian filter
@@ -35,7 +25,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
         gaussian_derivative_x_filter = convolution_op(self.filter_matrix,
-                                                      self.HORIZONTAL_SOBEL_FILTER,
+                                                      HORIZONTAL_SOBEL_FILTER,
                                                       padding_type=padding_type)
         # then convolve the image with the convolved filter
         partial_derivative_x = convolution_op(image,
@@ -43,7 +33,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
                                               padding_type=padding_type)
         # do the same for y
         gaussian_derivative_y_filter = convolution_op(self.filter_matrix,
-                                                      self.VERTICAL_SOBEL_FILTER,
+                                                      VERTICAL_SOBEL_FILTER,
                                                       padding_type=padding_type)
         partial_derivative_y = convolution_op(image, gaussian_derivative_y_filter,
                                               padding_type=padding_type)
