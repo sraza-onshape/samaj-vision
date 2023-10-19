@@ -8,7 +8,7 @@ HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
 VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
 
-def load_pgm(filename: str) -> List[List[int]]:
+def load_image(filename: str) -> List[List[int]]:
     """Allows us to convert images from its binary form to a 2D list representing the grayscale image."""
     with Image.open(filename) as img:
         # Convert the image to grayscale
