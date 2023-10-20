@@ -15,9 +15,9 @@ def load_image(filename: str) -> List[List[int]]:
         img = img.convert("L")
 
         # Get image data as a list of lists (2D list)
-        image_data = list(img.getdata())
-        width, height = img.size
-        print(f"Dimensions of {filename}: {width} x {height}")
+        image_data = list(img.getdata())  # currently, this is 1D
+        width, height = img.size 
+        print(f"Dimensions of {filename}: {height} x {width}")
         image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
 
     return image_data
