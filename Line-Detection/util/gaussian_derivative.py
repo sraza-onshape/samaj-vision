@@ -75,8 +75,11 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         """Implement non-maximum suppression."""
 
         ### HELPERS
-        def _find_neighbors(x, y, theta) -> List[Tuple[int, int]]:
-            """Returns the coordinates of the neighboring pixels, or None if out of bounds."""
+        def _find_neighbors(x: int, y: int, theta: float) -> List[Tuple[int, int]]:
+            """
+            Returns the coordinates of the neighboring pixels, or None if out of bounds.
+            The fractions used in the `if` conditions here represent angle measures around the unit circle.
+            """
             lower_px_indices, higher_px_indices = None, None
             # edge is vertical, get left-right neighbors
             if ((3 / 8) <= theta < (5 / 8)) or ((11 / 8) <= theta < (13 / 8)):
