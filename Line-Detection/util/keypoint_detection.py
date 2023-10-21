@@ -7,7 +7,8 @@ from .ops import (
     convolution as convolution_op,
     pad as padding_op,
     HORIZONTAL_SOBEL_FILTER,
-    VERTICAL_SOBEL_FILTER
+    IDENTITY_FILTER,
+    VERTICAL_SOBEL_FILTER,
 )
 
 
@@ -38,26 +39,39 @@ class HessianDetector(AbstractKeypointDetector):
             """After the determinant has been thresholded, use non-max suppression to recover more distinguishable keypoints."""
             # prevent potential loss of keypoints via padding
             padded_matrix, num_added_rows, num_added_cols = padding_op(
-                keypoints, 
-                stride=1, 
+                keypoints.tolist(),
+                img_filter=IDENTITY_FILTER,
+                stride=1,
                 padding_type="zero"
             )
             # traverse the matrix, to begin non-max suppression
-            for center_val_row in range(num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)):
-                for center_val_col in range(num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)):
+            for center_val_row in range(
+                num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)
+            ):
+                for center_val_col in range(
+                    num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)
+                ):
                     # determine if the given value should be suppressed, or its neighbors
                     center_val = padded_matrix[center_val_row][center_val_col]
-                    neighbors = padded_matrix[center_val_row-1:center_val_row+2][center_val_col-1:center_val_col+2]
+                    neighbors = padded_matrix[
+                        center_val_row-1:center_val_row+2,
+                        center_val_col-1:center_val_col+2
+                    ]
                     neighbors[1][1] = 0  # hack to prevent the center value from "self-suppressing" (I have no idea, I made that term up)
                     # zero out the appropiate value(s)
                     if center_val > neighbors.max():  # suppression of neighbors
-                        padded_matrix[center_val_row-1:center_val_row+2][center_val_col-1:center_val_col+2]
+                        padded_matrix[
+                            center_val_row - 1 : center_val_row + 2,
+                            center_val_col - 1 : center_val_col + 2
+                        ] = 0
                         padded_matrix[center_val_row][center_val_col] = center_val
                     else:  # suppression of the center
                         padded_matrix[center_val_row][center_val_col] = 0
-            
+
             # return the modified matrix - TODO[optimize later]
-            return padded_matrix[num_added_rows // 2:keypoints.shape[0] - (num_added_rows // 2)][num_added_cols // 2:keypoints.shape[1] - (num_added_cols // 2)]
+            return padded_matrix[
+                num_added_rows // 2 : keypoints.shape[0] - (num_added_rows // 2)
+            ][num_added_cols // 2 : keypoints.shape[1] - (num_added_cols // 2)]
 
         ### DRIVER
         # compute the second order partial derivatives
@@ -66,20 +80,31 @@ class HessianDetector(AbstractKeypointDetector):
             second_order_derivator_y,
             second_order_derivator_xy,
         ) = (
-            convolution_op(HORIZONTAL_SOBEL_FILTER, HORIZONTAL_SOBEL_FILTER, padding_type="zero"),
-            convolution_op(VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"),
-            convolution_op(HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero")
+            convolution_op(
+                HORIZONTAL_SOBEL_FILTER, HORIZONTAL_SOBEL_FILTER, padding_type="zero"
+            ),
+            convolution_op(
+                VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+            ),
+            convolution_op(
+                HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+            ),
         )
 
-        # formulate the Hessian matrix 
+        # formulate the Hessian matrix
         image_list = image.tolist()
-        IR = convolution_op(image_list, second_order_derivator_x, padding_type="zero")
-        hessian_xx = np.array(IR)
-        hessian_xy = np.array(convolution_op(image_list, second_order_derivator_xy, padding_type="zero"))
-        hessian_yy = np.array(convolution_op(image_list, second_order_derivator_y, padding_type="zero"))
+        hessian_xx = np.array(
+            convolution_op(image_list, second_order_derivator_x, padding_type="zero")
+        )
+        hessian_yy = np.array(
+            convolution_op(image_list, second_order_derivator_y, padding_type="zero")
+        )
+        hessian_xy = np.array(
+            convolution_op(image_list, second_order_derivator_xy, padding_type="zero")
+        )
 
         # find the determinant
-        determinant_hessian = hessian_xx * hessian_yy - hessian_xy**2
+        determinant_hessian = hessian_xx * hessian_yy - (hessian_xy ** 2)
 
         # (if needed) set the threshold
         lower_threshold = self.threshold
@@ -88,11 +113,15 @@ class HessianDetector(AbstractKeypointDetector):
             lower_threshold = self._get_threshold()
 
         # zero out non-keypoints - via thresholding
-        keypoints = np.where(determinant_hessian > lower_threshold, determinant_hessian, 0)
+        keypoints = np.where(
+            determinant_hessian > lower_threshold,
+            determinant_hessian,
+            0
+        )
 
         # zero out any non-keypoints - via non max suppression
         keypoints_suppressed = _suppress(keypoints)
-        
+
         keypoint_locations = [[], []]
         for y in range(keypoints_suppressed.shape[0]):
             for x in range(keypoints_suppressed.shape[1]):
@@ -111,11 +140,10 @@ class HessianDetector(AbstractKeypointDetector):
         # run the algorithm
         keypoint_detector = cls(threshold=threshold)
         keypoint_locations = keypoint_detector.find_keypoints(image)
-        print(len(keypoint_locations), len(keypoint_locations[0]), len(keypoint_locations[1]))
-        # show the results - 
-        plt.imshow(image, cmap='gray')
-        plt.scatter(y=keypoint_locations[0], x=keypoint_locations[1], color='red')
-        plt.title(f"Keypoints Detected for Image: \"{image_name}\"")
+        # show the results -
+        plt.imshow(image, cmap="gray")
+        plt.scatter(y=keypoint_locations[0], x=keypoint_locations[1], color="red")
+        plt.title(f'Keypoints Detected for Image: "{image_name}"')
         plt.show()
 
 

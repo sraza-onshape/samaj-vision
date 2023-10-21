@@ -18,7 +18,7 @@ def load_image(filename: str) -> List[List[int]]:
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())  # currently, this is 1D
-        width, height = img.size 
+        width, height = img.size
         print(f"Dimensions of {filename}: {height} x {width}")
         image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
 
@@ -124,30 +124,37 @@ def convolve_2D(
     return conv_channel
 
 
-def pad(image: List[List[float]], stride: int, padding_type: str) -> Tuple[List[List[float]], int, int]:
+def pad(
+    image: List[List[float]],
+    img_filter: List[List[int]],  # TODO[make it so users can just specify dims of the filter)
+    stride: int,
+    padding_type: str
+) -> Tuple[np.array, int, int]:
     padded_image = list()
 
     # compute the # of pixels needed to pad the image (in x and y)
     padding_dist_x = (
-        len(filter) - stride + (len(image) * (stride - 1))
+        len(img_filter) - stride + (len(image) * (stride - 1))
     )  # TODO[turn into helper func]
     padding_dist_y = (
-        len(filter[0]) - stride + (len(image[0]) * (stride - 1))
+        len(img_filter[0]) - stride + (len(image[0]) * (stride - 1))
     )  # TODO[extract into helper func]
 
     # zero-padding
     if padding_type == "zero":
         # add the rows (at the beginning) that are all 0
         for _ in range(padding_dist_y // 2):
-            padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
+            new_row = [0 for _ in range(padding_dist_x + len(image[0]))]
+            padded_image.append(new_row)
         # add the original image (extend its rows with zeros)
         for row in image:
-            zeros = [0 for _ in range(padding_dist_y // 2)]
+            zeros = [0 for _ in range(padding_dist_x // 2)]
             padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
             padded_image.append(padded_row)
         # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
         for _ in range(padding_dist_y // 2):
-            padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
+            new_row = [0 for _ in range(padding_dist_x + len(image[0]))]
+            padded_image.append(new_row)
 
     # replicate boundary pixels
     elif padding_type == "repeat":
@@ -193,7 +200,9 @@ def pad(image: List[List[float]], stride: int, padding_type: str) -> Tuple[List[
             padded_image[side_padding_y : side_padding_y + len(image)][row_index][
                 side_padding_x : side_padding_x + len(image[0])
             ] = image[row_index][:]
-    return padded_image, padding_dist_x, padding_dist_y
+
+    return np.array(padded_image), padding_dist_x, padding_dist_y
+
 
 def convolution(
     image: List[List[float]], filter: List[List[float]], stride=1, padding_type="repeat"
@@ -215,7 +224,7 @@ def convolution(
     Returns: np.array: a new RGB image
     """
     ### DRIVER
-    image, _, _ = pad(image, stride, padding_type)
+    image, _, _ = pad(image, filter, stride, padding_type)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
 
