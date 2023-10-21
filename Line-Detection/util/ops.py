@@ -126,9 +126,11 @@ def convolve_2D(
 
 def pad(
     image: List[List[float]],
-    img_filter: List[List[int]],  # TODO[make it so users can just specify dims of the filter)
+    img_filter: List[
+        List[int]
+    ],  # TODO[make it so users can just specify dims of the filter)
     stride: int,
-    padding_type: str
+    padding_type: str,
 ) -> Tuple[np.array, int, int]:
     padded_image = list()
 
