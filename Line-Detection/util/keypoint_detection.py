@@ -25,15 +25,20 @@ class HessianDetector(AbstractKeypointDetector):
     DEFAULT_PERCENTILE_FOR_DETERMINANT = 75  # totally arbitrary
 
     def __init__(self, threshold: float = None):
-        self.threshold = threshold
+        self.threshold = threshold  # should be an exact value, expected to be in the range of the image determinant
 
-    def _set_threshold(self, values: np.asarray) -> None:
-        self.threshold = np.percentile(values, self.DEFAULT_PERCENTILE_FOR_DETERMINANT)
+    def _set_threshold(self, values: np.array, percentile: float) -> None:
+        """Sets the determinant based on a percentile of an n-dimensional array (representing the range of some function)."""
+        self.threshold = np.percentile(values, percentile)
 
     def _get_threshold(self) -> float:
         return self.threshold
 
-    def find_keypoints(self, image: np.array) -> np.array:
+    def find_keypoints(
+            self,
+            image: np.array,
+            percentile: float = DEFAULT_PERCENTILE_FOR_DETERMINANT
+        ) -> np.array:
         ### HELPERS
         def _suppress(keypoints: np.array) -> np.array:
             """After the determinant has been thresholded, use non-max suppression to recover more distinguishable keypoints."""
@@ -61,8 +66,8 @@ class HessianDetector(AbstractKeypointDetector):
                     # zero out the appropiate value(s)
                     if center_val > neighbors.max():  # suppression of neighbors
                         padded_matrix[
-                            center_val_row - 1 : center_val_row + 2,
-                            center_val_col - 1 : center_val_col + 2
+                            center_val_row-1:center_val_row+2,
+                            center_val_col-1:center_val_col+2
                         ] = 0
                         padded_matrix[center_val_row][center_val_col] = center_val
                     else:  # suppression of the center
@@ -70,8 +75,9 @@ class HessianDetector(AbstractKeypointDetector):
 
             # return the modified matrix - TODO[optimize later]
             return padded_matrix[
-                num_added_rows // 2 : keypoints.shape[0] - (num_added_rows // 2)
-            ][num_added_cols // 2 : keypoints.shape[1] - (num_added_cols // 2)]
+                num_added_rows//2:keypoints.shape[0]-(num_added_rows // 2),
+                num_added_cols//2:keypoints.shape[1]-(num_added_cols // 2)
+            ]
 
         ### DRIVER
         # compute the second order partial derivatives
@@ -106,10 +112,10 @@ class HessianDetector(AbstractKeypointDetector):
         # find the determinant
         determinant_hessian = hessian_xx * hessian_yy - (hessian_xy ** 2)
 
-        # (if needed) set the threshold
+        # (if needed) set the threshold (should be an actual value, in the range of determinant)
         lower_threshold = self.threshold
-        if lower_threshold is None:
-            self._set_threshold(determinant_hessian)
+        if lower_threshold is None and (percentile is not None):
+            self._set_threshold(determinant_hessian, percentile)
             lower_threshold = self._get_threshold()
 
         # zero out non-keypoints - via thresholding
@@ -135,11 +141,11 @@ class HessianDetector(AbstractKeypointDetector):
         cls: "HessianDetector",
         image: np.array,
         image_name: str,
-        threshold: float = None,
+        percentile: float = DEFAULT_PERCENTILE_FOR_DETERMINANT,
     ) -> None:
         # run the algorithm
-        keypoint_detector = cls(threshold=threshold)
-        keypoint_locations = keypoint_detector.find_keypoints(image)
+        keypoint_detector = cls(threshold=None)
+        keypoint_locations = keypoint_detector.find_keypoints(image, percentile)
         # show the results -
         plt.imshow(image, cmap="gray")
         plt.scatter(y=keypoint_locations[0], x=keypoint_locations[1], color="red")
