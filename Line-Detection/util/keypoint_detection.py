@@ -3,6 +3,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .gaussian_base import BaseGaussianFilter
 from .ops import (
     convolution as convolution_op,
     pad as padding_op,
@@ -10,7 +11,6 @@ from .ops import (
     IDENTITY_FILTER,
     VERTICAL_SOBEL_FILTER,
 )
-
 
 class AbstractKeypointDetector:
     """This class is intentionally left blank."""
@@ -97,8 +97,12 @@ class HessianDetector(AbstractKeypointDetector):
             ),
         )
 
-        # formulate the Hessian matrix
+        # apply a Gaussian smoothening 
         image_list = image.tolist()
+        smoother = BaseGaussianFilter()
+        image_list = smoother.smooth(image_list)
+
+        # formulate the Hessian matrix
         hessian_xx = np.array(
             convolution_op(image_list, second_order_derivator_x, padding_type="zero")
         )
