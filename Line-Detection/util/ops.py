@@ -231,6 +231,12 @@ def convolution(
     return convolved_channel
 
 
+class TLSFitter:
+    """This class is a useful abstraction for using Total Least Sqaures to fit lines."""
+    # TODO: utilize this Python gist for implementation: https://gist.github.com/galenseilis/29935da21d5c34a197bf1ec91dd30f9e
+    pass
+
+
 if __name__ == "__main__":
     # a few small test cases
     matrix1 = np.arange(9).reshape(3, 3) + 1
