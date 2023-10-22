@@ -137,7 +137,7 @@ class HessianDetector(AbstractKeypointDetector):
                 if keypoints_suppressed[y][x] > 0:
                     keypoint_locations[0].append(y)
                     keypoint_locations[1].append(x)
-        return keypoint_locations
+        return np.array(keypoint_locations)
 
     @classmethod
     def find_keypoints_and_visualize(

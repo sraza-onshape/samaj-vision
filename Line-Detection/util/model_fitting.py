@@ -1,6 +1,6 @@
 import heapq
 import math
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 
@@ -72,7 +72,11 @@ class RANSACDetector(AbstractLineDetector):
         ) -> Tuple[np.array, float]:
             inlier_threshold = t
             # Randomly select a minimal sample of keypoints
-            sample = np.random.choice(keypoint_coordinates, size=s, replace=False)
+            sample_indices = np.random.choice(
+                range(keypoint_coordinates.shape[0]),
+                size=s, replace=False
+            )
+            sample = keypoint_coordinates[sample_indices]
 
             # Estimate a line model (y = mx + b) using the selected points
             point1, point2 = sample
@@ -91,7 +95,7 @@ class RANSACDetector(AbstractLineDetector):
             return (inliers, (m, b))
  
         def _run_RANSAC_adaptively(
-                add_to_results: function,
+                add_to_results: Callable,
                 s: int,
                 total_num_keypoints: int,
                 t: float,
@@ -123,23 +127,18 @@ class RANSACDetector(AbstractLineDetector):
                         )
                     )
                 sample_count += 1
+            N = num_iterations
             return N
 
         def _choose_top_k_results(
                 all_results: List[Tuple[np.array, float]],
                 k: int
             ) -> List:
-            top_k_results_heap = []
-            for index in range(k):
-                heapq.heappush(top_k_results_heap, all_results[index])
-            for index in range(k, len(all_results)):
-                model_tuple = all_results[index]
-                current_num_inliers, kth_largest_inliers = (
-                    model_tuple[0].shape[0],
-                    top_k_results_heap[0][0].shape[0]
-                )
-                if current_num_inliers > kth_largest_inliers:
-                    _ = heapq.heappushpop(top_k_results_heap, model_tuple)
+            top_k_results_heap = heapq.nlargest(
+                k,
+                all_results,
+                key=lambda group: group[0].shape[0]
+            )
             return top_k_results_heap
 
         ### DRIVER
