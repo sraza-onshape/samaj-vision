@@ -108,6 +108,7 @@ class RANSACDetector(AbstractLineDetector):
                     t,
                     s
                 )
+                add_to_results(next_model)
                 num_inliers = next_model[0].shape[0]
                 new_inlier_ratio = num_inliers / total_num_keypoints
                 if new_inlier_ratio > best_inlier_ratio:
@@ -121,7 +122,6 @@ class RANSACDetector(AbstractLineDetector):
                             10
                         )
                     )
-                add_to_results(next_model)
                 sample_count += 1
             return N
 
@@ -129,7 +129,9 @@ class RANSACDetector(AbstractLineDetector):
                 all_results: List[Tuple[np.array, float]],
                 k: int
             ) -> List:
-            top_k_results_heap = all_results[:k]
+            top_k_results_heap = []
+            for index in range(k):
+                heapq.heappush(top_k_results_heap, all_results[index])
             for index in range(k, len(all_results)):
                 model_tuple = all_results[index]
                 current_num_inliers, kth_largest_inliers = (
