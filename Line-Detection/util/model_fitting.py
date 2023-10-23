@@ -88,12 +88,24 @@ class RANSACDetector(AbstractLineDetector):
             for point in keypoint_coordinates:
                 dist = _distance_from_a_point_to_a_line(m, b, point[1], point[0])
                 orthogonal_distances.append(dist)
-            inliers = np.array([
-                keypoint_coordinates[i] for i, dist in enumerate(orthogonal_distances) 
+            inlier_indices = np.array([
+                i for i, dist in enumerate(orthogonal_distances) 
                 if dist < inlier_threshold
+            ]).astype(int)
+            inliers = keypoint_coordinates[inlier_indices]
+
+            # ensure the same inliers not used twice, and return the infor about this line
+            mask = np.ones(keypoint_coordinates.shape[0], bool)
+            mask[inlier_indices] = 0
+            # TODO[optimize later]
+            # modified_keypoint_coords = keypoint_coordinates[mask]
+            modified_keypoint_coords = np.array([
+                keypoint_coordinates[i]
+                for i, val in enumerate(mask)
+                if val == 1
             ])
 
-            return (inliers, (m, b))
+            return (modified_keypoint_coords, (inliers, (m, b)))
  
         def _run_RANSAC_adaptively(
                 add_to_results: Callable,
@@ -107,8 +119,8 @@ class RANSACDetector(AbstractLineDetector):
             sample_count = 0
             keypoint_coordinates = keypoints.T  # ordered pairs of (y, x) coordinates
 
-            while num_iterations > sample_count:
-                next_model = _sample_line(
+            while num_iterations > sample_count and keypoint_coordinates.shape[0] > s:
+                keypoint_coordinates, next_model = _sample_line(
                     keypoint_coordinates,
                     t,
                     s
@@ -187,7 +199,7 @@ class RANSACDetector(AbstractLineDetector):
             num_top_models_to_return=num_top_models_to_return
         )
         # 2a. Report choices for inlier thresholds, total number of iteraions and confidence values
-        print("=============== Booyah! I just ran RANSAC :) ===================")
+        print("=============== Horray! You just ran RANSAC :) ===================")
         print(f"Inlier threshold distance: {distance_threshold}, so we can reach a confidence level of approx. 0.95.")
         print(f"Total number of iterations (rounded to the nearest integer): {int(num_iterations)}.")
         print(f"Confidence Level used in Calculating No. of Iterations: {cls.CONFIDENCE_LEVEL_FOR_NUM_ITERATIONS}.")
@@ -199,7 +211,7 @@ class RANSACDetector(AbstractLineDetector):
             x_min, x_max = inliers[:, 1].min(), inliers[:, 1].max()
             x_range = np.linspace(x_min, x_max)
             y_range = x_range * slope + y_intercept
-            plt.plot(x_range, y_range, color='green', marker='-')
+            plt.plot(x_range, y_range, color='green', marker='*')
             # Also plot the inliers as 3×3 squares.
             row_wise_coords = inliers.T
             plt.scatter(
