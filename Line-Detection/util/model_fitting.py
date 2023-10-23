@@ -2,6 +2,7 @@ import heapq
 import math
 from typing import Callable, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from .keypoint_detection import HessianDetector
@@ -168,19 +169,46 @@ class RANSACDetector(AbstractLineDetector):
     def fit_and_report(
         cls: 'RANSACDetector',
         image: np.array,
-        keypoint_detector: HessianDetector,
+        keypoint_detector_algorithm: Callable,
         image_name: str = 'Image',
         required_number_of_inliers: int = 2,
         distance_threshold: float = 3.0,
         num_top_models_to_return: int = REQUIRED_NUM_MODELS_FOR_ASSIGNMENT,
     ) -> None:
         """
-        TODO:
-            1) detect keypoints on the image
-            2) get the top 4 models via RANSAC
-            3) do parts 2a and 2b in the assignment --> see bottom of ChatGPT thread
+        Convenience wrapper around the `fit()` method.
         """
-        pass
+        keypoints = keypoint_detector_algorithm(image)
+        line_detector = cls()
+        top_4_models, num_iterations = line_detector.fit(
+            keypoints,
+            required_number_of_inliers=required_number_of_inliers,
+            distance_threshold=distance_threshold,
+            num_top_models_to_return=num_top_models_to_return
+        )
+        # 2a. Report choices for inlier thresholds, total number of iteraions and confidence values
+        print("=============== Booyah! I just ran RANSAC :) ===================")
+        print(f"Inlier threshold distance: {distance_threshold}, so we can reach a confidence level of approx. 0.95.")
+        print(f"Total number of iterations (rounded to the nearest integer): {int(num_iterations)}.")
+        print(f"Confidence Level used in Calculating No. of Iterations: {cls.CONFIDENCE_LEVEL_FOR_NUM_ITERATIONS}.")
+        # 2b. Overlay line segments in the image by connecting the two extreme inliers of each line.
+        plt.imshow(image, cmap="gray")
+        for model_data in top_4_models:
+            inliers, line_params = model_data
+            slope, y_intercept = line_params
+            x_min, x_max = inliers[:, 1].min(), inliers[:, 1].max()
+            x_range = np.linspace(x_min, x_max)
+            y_range = x_range * slope + y_intercept
+            plt.plot(x_range, y_range, color='green', marker='-')
+            # Also plot the inliers as 3×3 squares.
+            row_wise_coords = inliers.T
+            plt.scatter(
+                y=row_wise_coords[0],
+                x=row_wise_coords[1],
+                color="b", marker="s"
+            )
+        plt.title(f'RANSAC: Lines Detected for Image: "{image_name}"')
+        plt.show()
 
 
 if __name__ == "__main__":
