@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .keypoint_detection import HessianDetector
+from util.ops import (
+    IDENTITY_FILTER,
+    pad as padding_op,
+)
 
 
 class AbstractLineDetector:
@@ -221,6 +225,155 @@ class RANSACDetector(AbstractLineDetector):
             )
         plt.title(f'RANSAC: Lines Detected for Image: "{image_name}"')
         plt.show()
+
+
+class HoughTransformDetector(AbstractLineDetector):
+    """Implements a Hough Transform for Line Detection."""
+
+    REQUIRED_NUM_MODELS_FOR_ASSIGNMENT = 4
+
+    def fit(
+        self,
+        image: np.array,
+        keypoints: np.array,
+        rho_bin_size: float = 1,
+        theta_bin_size: float = np.pi / 180,
+        num_top_models_to_return: int = REQUIRED_NUM_MODELS_FOR_ASSIGNMENT,
+    ) -> Tuple[List[Tuple[int, int]], np.array]:
+        """
+        Executes a Hough transform to fit multiple models across a dataset.
+
+        Parameters:
+            image: np.array: pixel raster matrix.
+            keypoints: np.array: the output of problem 1 (see `HessianDetector.find_keypoints`). Shape is (2, num_keypoint_locations).
+            rho_bin_size, theta_bin_size (float, float): the resolutions of 1 discretized "bucket" in the voting histogram.
+            num_top_models_to_return: int. Defaults to 4 (for the purposes of Hw 2, problem 3).
+
+        Returns: (array-like, int): a tuple of two values
+            1) a list of four 2-tuples - each represents a cell in the accumulator with the top-4 most votes.
+            2) np.array: the accumulator, i.e., the histogram of votes in Hough space (using polar coordinates).
+        """
+        ### HELPERS
+        def _non_max_suppression(matrix):
+            '''prevent potential loss of keypoints via padding'''
+            keypoints = matrix
+            padded_matrix, num_added_rows, num_added_cols = padding_op(
+                keypoints.tolist(),
+                img_filter=IDENTITY_FILTER,
+                stride=1,
+                padding_type="zero",
+            )
+            print(f"Size of input, size of padded: {keypoints.shape, padded_matrix.shape}")
+            # traverse the matrix, to begin non-max suppression
+            for center_val_row in range(num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)):
+                for center_val_col in range(num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)):
+                    # determine if the given value should be suppressed, or its neighbors
+                    center_val = padded_matrix[center_val_row][center_val_col]
+                    neighbors = padded_matrix[
+                        center_val_row - 1 : center_val_row + 2,
+                        center_val_col - 1 : center_val_col + 2,
+                    ]
+                    neighbors[1][1] = 0  # hack to prevent the center value from "self-suppressing" (I have no idea, I made that term up)
+                    # zero out the appropiate value(s)
+                    if center_val > neighbors.max():  # suppression of neighbors
+                        padded_matrix[
+                            center_val_row - 1 : center_val_row + 2,
+                            center_val_col - 1 : center_val_col + 2,
+                        ] = 0
+                        padded_matrix[center_val_row][center_val_col] = center_val
+                    else:  # suppression of the center
+                        padded_matrix[center_val_row][center_val_col] = 0
+
+            # return the modified matrix - TODO[optimize later]
+            return padded_matrix[
+                num_added_rows // 2 : padded_matrix.shape[0] - (num_added_rows // 2),
+                num_added_cols // 2 : padded_matrix.shape[1] - (num_added_cols // 2),
+            ]
+
+        ### DRIVER
+        keypoint_coords = keypoints.T
+        # Define the parameter space for the Hough transform
+        max_rho = np.hypot(image.shape[0], image.shape[1])
+
+        # Calculate the new size of the accumulator array
+        rho_bins = int(2 * max_rho / rho_bin_size)
+        theta_bins = int(np.pi / theta_bin_size)
+
+        # Create the accumulator array with the new size
+        accumulator = np.zeros((rho_bins, theta_bins))
+
+        # Voting in the accumulator array
+        for point in keypoint_coords:
+            for theta in np.arange(0, np.pi, theta_bin_size):
+                col = x_coord = point[1]
+                row = y_coord = point[0]
+                rho = int(x_coord * np.cos(theta) + y_coord * np.sin(theta))
+                rho_bin = int(rho / rho_bin_size)
+                theta_bin = int(theta / theta_bin_size)
+                accumulator[rho_bin, theta_bin] += 1
+
+        # Thresholding to identify detected lines --> use non max suppression
+        local_max_accumulator = _non_max_suppression(accumulator)
+
+        # Extract and convert a sampling of detected lines to Cartesian coordinates
+        local_max_accumulator_flat = local_max_accumulator.reshape(1, -1)
+        least_to_greatest_votes = np.argsort(local_max_accumulator_flat)[0, -1 * num_top_models_to_return:]
+        sample_indices = [
+            (
+                flat_index // local_max_accumulator.shape[0], 
+                ((flat_index // local_max_accumulator.shape[1]) % local_max_accumulator.shape[1]) - 1
+            )
+            for flat_index in least_to_greatest_votes
+        ]
+        return sample_indices, accumulator
+    
+    
+    @classmethod
+    def fit_and_report(
+        cls: 'HoughTransformDetector',
+        image: np.array,
+        image_name: str,
+        keypoint_detector_algorithm: Callable,
+        rho_bin_size: float = 1,
+        theta_bin_size: float = np.pi / 180,
+        num_top_models_to_return: int = REQUIRED_NUM_MODELS_FOR_ASSIGNMENT,
+    ) -> None:
+        """Plot the image and detected lines."""
+        keypoints = keypoint_detector_algorithm(image)
+        detector = cls()
+
+        sample_indices, accumulator = detector.fit(
+            image=image,
+            keypoints=keypoints,
+            rho_bin_size=rho_bin_size,
+            theta_bin_size=theta_bin_size,
+            num_top_models_to_return=num_top_models_to_return,
+        )
+
+        # Create a figure with matching dimensions to the input image
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+
+        # Plot the image and detected lines
+        for rho_bin, theta_bin in sample_indices:
+            theta = theta_bin * theta_bin_size
+            rho = rho_bin * rho_bin_size
+            x_intercept = (rho - (0 * np.sin(theta))) / (np.cos(theta))
+            y_intercept = (rho - (0 * np.cos(theta))) / (np.sin(theta))
+
+            ax1.plot([x_intercept, 0], [0, y_intercept], color='green')
+        ax1.set_title(f"Detected Lines on \"{image_name}\" Image (Cartesian Coordinates)")
+        ax1.imshow(image, cmap='gray')  # plot the image in the background
+
+        # Plot the accumulator array as a 2D histogram
+        accumulator_in_pixel_scale = (
+            (accumulator - accumulator.min()) / 
+            (accumulator.max() - accumulator.min())
+        ) * 255.
+
+        ax2.imshow(accumulator_in_pixel_scale, cmap='gray')
+        ax2.set_title('Votes in Hough Space (Polar Coordinates)')
+        ax2.set_xlabel('Theta (radians)')
+        ax2.set_ylabel('Rho (pixels)')
 
 
 if __name__ == "__main__":
