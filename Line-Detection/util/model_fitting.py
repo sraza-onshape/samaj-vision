@@ -263,7 +263,6 @@ class HoughTransformDetector(AbstractLineDetector):
                 stride=1,
                 padding_type="zero",
             )
-            print(f"Size of input, size of padded: {keypoints.shape, padded_matrix.shape}")
             # traverse the matrix, to begin non-max suppression
             for center_val_row in range(num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)):
                 for center_val_col in range(num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)):
@@ -320,6 +319,7 @@ class HoughTransformDetector(AbstractLineDetector):
         least_to_greatest_votes = np.argsort(local_max_accumulator_flat)[0, -1 * num_top_models_to_return:]
         sample_indices = [
             (
+                # work back into the dims of the 2D accumulator matrix, given 1D index into the flattened array
                 flat_index // local_max_accumulator.shape[0], 
                 ((flat_index // local_max_accumulator.shape[1]) % local_max_accumulator.shape[1]) - 1
             )
@@ -357,10 +357,26 @@ class HoughTransformDetector(AbstractLineDetector):
         for rho_bin, theta_bin in sample_indices:
             theta = theta_bin * theta_bin_size
             rho = rho_bin * rho_bin_size
-            x_intercept = (rho - (0 * np.sin(theta))) / (np.cos(theta))
-            y_intercept = (rho - (0 * np.cos(theta))) / (np.sin(theta))
+            # x_intercept = (rho - (0 * np.sin(theta))) / (np.cos(theta))
+            # y_intercept = (rho - (0 * np.cos(theta))) / (np.sin(theta))
 
-            ax1.plot([x_intercept, 0], [0, y_intercept], color='green')
+            # ax1.plot([x_intercept, 0], [0, y_intercept], color='green')
+            a = np.cos(theta)
+            b = np.sin(theta)
+            x0 = a * rho
+            y0 = b * rho
+            x1 = int(x0 + 1000 * (-b))
+            y1 = int(y0 + 1000 * (a))
+            x2 = int(x0 - 1000 * (-b))
+            y2 = int(y0 - 1000 * (a))
+
+            # Ensure endpoints are within image bounds
+            x1 = max(0, min(x1, image.shape[1] - 1))
+            y1 = max(0, min(y1, image.shape[0] - 1))
+            x2 = max(0, min(x2, image.shape[1] - 1))
+            y2 = max(0, min(y2, image.shape[0] - 1))
+
+            ax1.plot([x1, x2], [y1, y2], color='green')
         ax1.set_title(f"Detected Lines on \"{image_name}\" Image (Cartesian Coordinates)")
         ax1.imshow(image, cmap='gray')  # plot the image in the background
 
