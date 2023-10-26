@@ -317,14 +317,11 @@ class HoughTransformDetector(AbstractLineDetector):
         # Extract and convert a sampling of detected lines to Cartesian coordinates
         local_max_accumulator_flat = local_max_accumulator.reshape(1, -1)
         least_to_greatest_votes = np.argsort(local_max_accumulator_flat)[0, -1 * num_top_models_to_return:]
-        sample_indices = [
-            (
-                # work back into the dims of the 2D accumulator matrix, given 1D index into the flattened array
-                flat_index // local_max_accumulator.shape[0], 
-                ((flat_index // local_max_accumulator.shape[1]) % local_max_accumulator.shape[1]) - 1
-            )
-            for flat_index in least_to_greatest_votes
-        ]
+        sample_indices = list()
+        for flat_index in least_to_greatest_votes:
+            row_index = flat_index // local_max_accumulator.shape[1]
+            col_index = flat_index - (row_index * local_max_accumulator.shape[1])
+            sample_indices.append((row_index, col_index))
         return sample_indices, accumulator
     
     
@@ -349,14 +346,15 @@ class HoughTransformDetector(AbstractLineDetector):
             theta_bin_size=theta_bin_size,
             num_top_models_to_return=num_top_models_to_return,
         )
-
+        print("=============== You just ran a Hough Transform - I'll do my best to plot the lines! ===================")
         # Create a figure with matching dimensions to the input image
         fig, (ax1, ax2) = plt.subplots(1, 2)
 
         # Plot the image and detected lines
-        for rho_bin, theta_bin in sample_indices:
+        for index, (rho_bin, theta_bin) in enumerate(sample_indices):
             theta = theta_bin * theta_bin_size
             rho = rho_bin * rho_bin_size
+            print(f"Line {index + 1} - rho and theta bin: ({rho_bin}, {theta_bin}) --> the line params, theta and rho, are: ({theta}, {rho})")
             # x_intercept = (rho - (0 * np.sin(theta))) / (np.cos(theta))
             # y_intercept = (rho - (0 * np.cos(theta))) / (np.sin(theta))
 
