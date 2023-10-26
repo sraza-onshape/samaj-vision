@@ -24,7 +24,7 @@
 - [TODO] in the first plot - restrict the domain and range of the lines plotted --> try `# Set the plot dimensions to match the image dimensions
 plt.gcf().set_size_inches(image.shape[1] / 80, image.shape[0] / 80)`
 indicies: `[50 29 71 14]`
-# TODO: try another idea: based on the rho_bin, theta_bin, 1 at least 1 point on the line, that's also on the pic
+✅ # TODO: try another idea: based on the rho_bin, theta_bin, 1 at least 1 point on the line, that's also on the pic
 --> given the `rho_bin` and the `theta_bin`:
     --> iterate over `detected_lines[0][sample_indices]` and `detected_lines[1][sample_indices]`:
         --> theta = theta_bin * theta_resolution
