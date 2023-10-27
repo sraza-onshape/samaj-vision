@@ -1,18 +1,25 @@
 import numpy as np
 from PIL import Image
-from typing import List
+from typing import List, Tuple
 
 
-def load_pgm(filename: str) -> List[List[int]]:
+HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+
+IDENTITY_FILTER = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
+
+VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+
+
+def load_image(filename: str) -> List[List[int]]:
     """Allows us to convert images from its binary form to a 2D list representing the grayscale image."""
     with Image.open(filename) as img:
         # Convert the image to grayscale
         img = img.convert("L")
 
         # Get image data as a list of lists (2D list)
-        image_data = list(img.getdata())
+        image_data = list(img.getdata())  # currently, this is 1D
         width, height = img.size
-        print(f"Dimensions of {filename}: {width} x {height}")
+        print(f"Dimensions of {filename}: {height} x {width}")
         image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
 
     return image_data
@@ -117,6 +124,88 @@ def convolve_2D(
     return conv_channel
 
 
+def pad(
+    image: List[List[float]],
+    img_filter: List[
+        List[int]
+    ],  # TODO[make it so users can just specify dims of the filter)
+    stride: int,
+    padding_type: str,
+) -> Tuple[np.array, int, int]:
+    padded_image = list()
+
+    # compute the # of pixels needed to pad the image (in x and y)
+    padding_dist_x = (
+        len(img_filter) - stride + (len(image) * (stride - 1))
+    )  # TODO[turn into helper func]
+    padding_dist_y = (
+        len(img_filter[0]) - stride + (len(image[0]) * (stride - 1))
+    )  # TODO[extract into helper func]
+
+    # zero-padding
+    if padding_type == "zero":
+        # add the rows (at the beginning) that are all 0
+        for _ in range(padding_dist_y // 2):
+            new_row = [0 for _ in range(padding_dist_x + len(image[0]))]
+            padded_image.append(new_row)
+        # add the original image (extend its rows with zeros)
+        for row in image:
+            zeros = [0 for _ in range(padding_dist_x // 2)]
+            padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
+            padded_image.append(padded_row)
+        # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
+        for _ in range(padding_dist_y // 2):
+            new_row = [0 for _ in range(padding_dist_x + len(image[0]))]
+            padded_image.append(new_row)
+
+    # replicate boundary pixels
+    elif padding_type == "repeat":
+        padded_image = np.zeros(
+            (len(image) + padding_dist_y, len(image[0]) + padding_dist_x)
+        )
+        side_padding_y, side_padding_x = padding_dist_y // 2, padding_dist_x // 2
+        # fill corners
+        padded_image[0:side_padding_y][0:side_padding_x] = image[0][0]  # top-left
+        padded_image[0:side_padding_y][side_padding_x + len(image[0]) :] = image[0][
+            -1
+        ]  # top-right
+        padded_image[side_padding_y + len(image) :][0:side_padding_x] = image[-1][
+            0
+        ]  # bottom-left
+        padded_image[side_padding_y + len(image) :][
+            side_padding_x + len(image[0]) :
+        ] = image[-1][
+            -1
+        ]  # bottom-right
+        # fill in the pixels above the top rows
+        for row_index in range(0, side_padding_y):
+            padded_image[row_index][
+                side_padding_x : side_padding_x + len(image[0])
+            ] = image[0][:]
+        # fills the pixels below the last rows
+        for row_index in range(side_padding_y + len(image), padded_image.shape[0]):
+            padded_image[row_index][
+                side_padding_x : side_padding_x + len(image[0])
+            ] = image[-1][:]
+        # fills the pixels to the left of the first col
+        for row_index in range(len(image)):
+            padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                0:side_padding_x
+            ] = image[row_index][0]
+        # fills the pixels to the right of the last col
+        for row_index in range(len(image)):
+            padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                side_padding_x + len(image[0]) :
+            ] = image[row_index][-1]
+        # fill in the center - "easiest part"
+        for row_index in range(len(image)):
+            padded_image[side_padding_y : side_padding_y + len(image)][row_index][
+                side_padding_x : side_padding_x + len(image[0])
+            ] = image[row_index][:]
+
+    return np.array(padded_image), padding_dist_x, padding_dist_y
+
+
 def convolution(
     image: List[List[float]], filter: List[List[float]], stride=1, padding_type="repeat"
 ) -> List[List[float]]:
@@ -136,83 +225,16 @@ def convolution(
 
     Returns: np.array: a new RGB image
     """
-
-    ### HELPER
-    def _pad(image: List[List[float]], padding_type: str) -> List[List[float]]:
-        padded_image = list()
-
-        # compute the # of pixels needed to pad the image (in x and y)
-        padding_dist_x = (
-            len(filter) - stride + (len(image) * (stride - 1))
-        )  # TODO[turn into helper func]
-        padding_dist_y = (
-            len(filter[0]) - stride + (len(image[0]) * (stride - 1))
-        )  # TODO[extract into helper func]
-
-        # zero-padding
-        if padding_type == "zero":
-            # add the rows (at the beginning) that are all 0
-            for _ in range(padding_dist_y // 2):
-                padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
-            # add the original image (extend its rows with zeros)
-            for row in image:
-                zeros = [0 for _ in range(padding_dist_y // 2)]
-                padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
-                padded_image.append(padded_row)
-            # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
-            for _ in range(padding_dist_y // 2):
-                padded_image.append([0 for _ in range(padding_dist_x + len(image[0]))])
-
-        # replicate boundary pixels
-        elif padding_type == "repeat":
-            padded_image = np.zeros(
-                (len(image) + padding_dist_y, len(image[0]) + padding_dist_x)
-            )
-            side_padding_y, side_padding_x = padding_dist_y // 2, padding_dist_x // 2
-            # fill corners
-            padded_image[0:side_padding_y][0:side_padding_x] = image[0][0]  # top-left
-            padded_image[0:side_padding_y][side_padding_x + len(image[0]) :] = image[0][
-                -1
-            ]  # top-right
-            padded_image[side_padding_y + len(image) :][0:side_padding_x] = image[-1][
-                0
-            ]  # bottom-left
-            padded_image[side_padding_y + len(image) :][
-                side_padding_x + len(image[0]) :
-            ] = image[-1][
-                -1
-            ]  # bottom-right
-            # fill in the pixels above the top rows
-            for row_index in range(0, side_padding_y):
-                padded_image[row_index][
-                    side_padding_x : side_padding_x + len(image[0])
-                ] = image[0][:]
-            # fills the pixels below the last rows
-            for row_index in range(side_padding_y + len(image), padded_image.shape[0]):
-                padded_image[row_index][
-                    side_padding_x : side_padding_x + len(image[0])
-                ] = image[-1][:]
-            # fills the pixels to the left of the first col
-            for row_index in range(len(image)):
-                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
-                    0:side_padding_x
-                ] = image[row_index][0]
-            # fills the pixels to the right of the last col
-            for row_index in range(len(image)):
-                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
-                    side_padding_x + len(image[0]) :
-                ] = image[row_index][-1]
-            # fill in the center - "easiest part"
-            for row_index in range(len(image)):
-                padded_image[side_padding_y : side_padding_y + len(image)][row_index][
-                    side_padding_x : side_padding_x + len(image[0])
-                ] = image[row_index][:]
-        return padded_image
-
     ### DRIVER
-    image = _pad(image, padding_type)
+    image, _, _ = pad(image, filter, stride, padding_type)
     convolved_channel = convolve_2D(image, filter, stride)
     return convolved_channel
+
+
+class TLSFitter:
+    """This class is a useful abstraction for using Total Least Sqaures to fit lines."""
+    # TODO: utilize this Python gist for implementation: https://gist.github.com/galenseilis/29935da21d5c34a197bf1ec91dd30f9e
+    pass
 
 
 if __name__ == "__main__":

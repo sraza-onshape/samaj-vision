@@ -4,14 +4,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .ops import convolution as convolution_op
+from .ops import HORIZONTAL_SOBEL_FILTER
+from .ops import VERTICAL_SOBEL_FILTER
+
 from .gaussian_base import BaseGaussianFilter
 
 
 class GaussianDerivativeFilter(BaseGaussianFilter):
-    HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-
-    VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-
     def __init__(self, sigma: int = 1) -> None:
         super().__init__(sigma)
         # create the 2D Gaussian filter
@@ -24,7 +23,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         # 2) "separate into x and y"
         # for x: convolve filter with the horizontal Sobel
         gaussian_derivative_x_filter = convolution_op(
-            self.filter_matrix, self.HORIZONTAL_SOBEL_FILTER, padding_type=padding_type
+            self.filter_matrix, HORIZONTAL_SOBEL_FILTER, padding_type=padding_type
         )
         # then convolve the image with the convolved filter
         partial_derivative_x = convolution_op(
@@ -32,7 +31,7 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         )
         # do the same for y
         gaussian_derivative_y_filter = convolution_op(
-            self.filter_matrix, self.VERTICAL_SOBEL_FILTER, padding_type=padding_type
+            self.filter_matrix, VERTICAL_SOBEL_FILTER, padding_type=padding_type
         )
         partial_derivative_y = convolution_op(
             image, gaussian_derivative_y_filter, padding_type=padding_type
@@ -76,8 +75,11 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         """Implement non-maximum suppression."""
 
         ### HELPERS
-        def _find_neighbors(x, y, theta) -> List[Tuple[int, int]]:
-            """Returns the coordinates of the neighboring pixels, or None if out of bounds."""
+        def _find_neighbors(x: int, y: int, theta: float) -> List[Tuple[int, int]]:
+            """
+            Returns the coordinates of the neighboring pixels, or None if out of bounds.
+            The fractions used in the `if` conditions here represent angle measures around the unit circle.
+            """
             lower_px_indices, higher_px_indices = None, None
             # edge is vertical, get left-right neighbors
             if ((3 / 8) <= theta < (5 / 8)) or ((11 / 8) <= theta < (13 / 8)):
