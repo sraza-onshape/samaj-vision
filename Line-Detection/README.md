@@ -7,7 +7,9 @@
 ## Problem 1: Preprocessing
 
 ### Short Explanation
-TODO
+
+The `HessianDetector` class implements an algorithm for keypoint detection via the Hessian matrix of an image, as discussed in class. 
+The `fit()` method handles the main steps of the algorithm - it preprocesses the image using a Gaussian filter (I reused the code from my homework 1 solution), utilizes the Sobel filter to compute the second derivative. Finally, we do a few vectorized operations to get the determinant, which is thresholded (the user provides the threshold), and finally, non-max suppression is used to further reduce the number of kyepoints. The final output of the `fit()` method is a 2D NumPy array in the form `np.array([y1, y2, ..., yn], [x1, x2, ..., xn])`, where each column represents the coordinate of a keypoint in the image.
 
 ### Code
 
@@ -81,7 +83,7 @@ class HessianDetector(AbstractKeypointDetector):
                     else:  # suppression of the center
                         padded_matrix[center_val_row][center_val_col] = 0
 
-            # return the modified matrix - TODO[optimize later]
+            # return the modified matrix
             return padded_matrix[
                 num_added_rows // 2 : keypoints.shape[0] - (num_added_rows // 2),
                 num_added_cols // 2 : keypoints.shape[1] - (num_added_cols // 2),
@@ -178,12 +180,13 @@ HessianDetector.find_keypoints_and_visualize(
 ```
 
 The resulting image looks like the following, `problem1_preprocessing/hessian_matrix_keypoints.png`:
+
 ![visual of the output for plot](./problem1_preprocessing/hessian_matrix_keypoints.png).
 
 ## Problem 2: RANSAC
 
 ### Short Explanation
-TODO
+The `RANSACDetector` class has a `fit()` method that accepts the keypoints outputted by the `HessianDetector.fit()` method, and uses that to find a user-specified number of lines (in this case, it was `4` for the purposes of the assignment) in the image. We run RANSAC adaptively, so that there is no need to set the number of iterations ahead of time. The `distance_threshold` is set to `3`` by default, because I assume Gaussian noise in the image that falls in a Z-distribution; ergo, `3 * stddev of 1 = 3`. At the end, the lines with the most support are picked out using a min heap, via Python's `heapq` module. 
 
 ### Code
 ```python
@@ -272,7 +275,6 @@ class RANSACDetector(AbstractLineDetector):
             # ensure the same inliers not used twice, and return the infor about this line
             mask = np.ones(keypoint_coordinates.shape[0], bool)
             mask[inlier_indices] = 0
-            # TODO[optimize later]
             # modified_keypoint_coords = keypoint_coordinates[mask]
             modified_keypoint_coords = np.array([
                 keypoint_coordinates[i]
@@ -421,12 +423,13 @@ RANSACDetector.fit_and_report(
 ```
 
 The resulting image looks like the following, `problem2_ransac/results.png`:
+
 ![visual of the output for plot](./problem2_ransac/results.png).
 
 ## Problem 3: Hough Transform
 
 ### Short Explanation
-TODO
+The `HoughTransformDetector` class implements the Hough Transform algorith, as discussed in class. Like the `RANSACDetector`, it has a `fit()` method that consumes the keypoints and finds multiple lines in the image. Non-max suppression is used here, so that for plotting we only look at lines that were maxima in local neighbors (but note, the non-suppressed accumulator array is used to plot the votes histogram, since that looked better visually). When plotting the lines themselves, I attempt to convert the polar coordinates back into Cartesian ones, and specifically find the x- and y-intercepts. One limitation of this approach is that sometimes, the line being plotted fell outside the dimensions of the image itself - so in the final images, it appears to not be there (when in reality, it just fell out of the "window" of the plot axes).
 
 ### Code
 ```python
@@ -487,7 +490,7 @@ class HoughTransformDetector(AbstractLineDetector):
                     else:  # suppression of the center
                         padded_matrix[center_val_row][center_val_col] = 0
 
-            # return the modified matrix - TODO[optimize later]
+            # return the modified matrix
             return padded_matrix[
                 num_added_rows // 2 : padded_matrix.shape[0] - (num_added_rows // 2),
                 num_added_cols // 2 : padded_matrix.shape[1] - (num_added_cols // 2),
@@ -617,6 +620,7 @@ HoughTransformDetector.fit_and_report(
 ```
 
 The resulting image looks like the following, `problem3_hough_transform/results_3a.png`:
+
 ![visual of the output for plot](./problem3_hough_transform/results_3a.png).
 
 Unfortunately (for reasons I have not yet quite debugged), only 3 lines are plotted on the left-hand size. I believe 4 lines were successfully computed, as the following logs report the following (see the code cell in `problems.ipynb` to reproduce):
@@ -646,6 +650,7 @@ HoughTransformDetector.fit_and_report(
 ```
 
 The resulting image looks like the following, `problem3_hough_transform/results_3b.png`:
+
 ![visual of the output for plot](./problem3_hough_transform/results_3b.png).
 
 Unfortunately (for reasons I have not yet quite debugged), only 2 lines are plotted on the left-hand size. But like before, I believe 4 lines were successfully computed, as the following logs report the following (see the code cell in `problems.ipynb` to reproduce):
@@ -675,6 +680,7 @@ HoughTransformDetector.fit_and_report(
 ```
 
 The resulting image looks like the following, `problem3_hough_transform/results_3c.png`:
+
 ![visual of the output for plot](./problem3_hough_transform/results_3c.png).
 
 Unfortunately (for reasons I have not yet quite debugged), only 3 lines are plotted on the left-hand size. But like before, I believe 4 lines were successfully computed, as the following logs report the following (see the code cell in `problems.ipynb` to reproduce):
@@ -690,9 +696,5 @@ Line 4 - rho and theta bin: (0, 59) --> the line params, theta and rho, are: (2.
 
 
 
-## TODO: add finishing touches
-    Submission Format. Electronic submission on Canvas is mandatory. Submit a zip file containing:
-        • the output images.
-        • a pdf file describing your work, showing resul9ng images and a brief explana9on of the implementa9on.
 
 

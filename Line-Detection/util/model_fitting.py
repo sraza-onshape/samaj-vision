@@ -5,7 +5,6 @@ from typing import Callable, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .keypoint_detection import HessianDetector
 from util.ops import (
     IDENTITY_FILTER,
     pad as padding_op,
@@ -311,7 +310,7 @@ class HoughTransformDetector(AbstractLineDetector):
                 theta_bin = int(theta / theta_bin_size)
                 accumulator[rho_bin, theta_bin] += 1
 
-        # Thresholding to identify detected lines --> use non max suppression
+        # use non max suppression to get lines with more support
         local_max_accumulator = _non_max_suppression(accumulator)
 
         # Extract and convert a sampling of detected lines to Cartesian coordinates
