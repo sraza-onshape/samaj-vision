@@ -32,53 +32,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         use_non_max_suppression: bool = False,
     ) -> np.ndarray:
         """TODO[Zain]"""
-
         ### HELPER(S)
-        # def _compute_second_moment_matrix(matrix: np.ndarray) -> np.ndarray:
-        #     (
-        #         second_order_derivator_x,
-        #         second_order_derivator_y,
-        #         second_order_derivator_xy,
-        #     ) = (
-        #         convolution_op(
-        #             HORIZONTAL_SOBEL_FILTER,
-        #             HORIZONTAL_SOBEL_FILTER,
-        #             padding_type="zero",
-        #         ),
-        #         convolution_op(
-        #             VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
-        #         ),
-        #         convolution_op(
-        #             HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
-        #         ),
-        #     )
-
-        #     matrix_list = matrix.tolist()
-
-        #     hessian_xx = np.array(
-        #         convolution_op(
-        #             matrix_list, second_order_derivator_x, padding_type="zero"
-        #         )
-        #     )
-        #     hessian_yy = np.array(
-        #         convolution_op(
-        #             matrix_list, second_order_derivator_y, padding_type="zero"
-        #         )
-        #     )
-        #     hessian_xy = np.array(
-        #         convolution_op(
-        #             matrix_list, second_order_derivator_xy, padding_type="zero"
-        #         )
-        #     )
-
-        #     # second_moment_matrix
-        #     return np.array(
-        #         [
-        #             [np.sum(hessian_xx), np.sum(hessian_xy)],
-        #             [np.sum(hessian_xy), np.sum(hessian_yy)],
-        #         ]
-        #     )
-
         def _compute_derivatives_in_gaussian_window(
             image: np.ndarray,
             gaussian_window: List[List[float]],
