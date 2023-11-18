@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 
 HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
@@ -10,8 +10,20 @@ IDENTITY_FILTER = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
 VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
 
-def load_image(filename: str) -> List[List[int]]:
-    """Allows us to convert images from its binary form to a 2D list representing the grayscale image."""
+def load_image(
+        filename: str,
+        return_array: bool = False
+    ) -> Union[List[List[int]], np.ndarray]:
+    """
+    Allows us to convert images from its binary form 
+    to a 2D list representing the grayscale image.
+    
+    Parameters:
+        filename(str): relative path to the image file
+        return_array(bool): if True, the output returned is an ndarray
+
+    Returns: array-like, pixel raster matrix
+    """
     with Image.open(filename) as img:
         # Convert the image to grayscale
         img = img.convert("L")
@@ -21,6 +33,9 @@ def load_image(filename: str) -> List[List[int]]:
         width, height = img.size
         print(f"Dimensions of {filename}: {height} x {width}")
         image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
+
+        if return_array is True:
+            image_data = np.array(image_data)
 
     return image_data
 
