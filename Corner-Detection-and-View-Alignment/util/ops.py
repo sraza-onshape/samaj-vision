@@ -11,13 +11,12 @@ VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
 
 def load_image(
-        filename: str,
-        return_array: bool = False
-    ) -> Union[List[List[int]], np.ndarray]:
+    filename: str, return_array: bool = False
+) -> Union[List[List[int]], np.ndarray]:
     """
-    Allows us to convert images from its binary form 
+    Allows us to convert images from its binary form
     to a 2D list representing the grayscale image.
-    
+
     Parameters:
         filename(str): relative path to the image file
         return_array(bool): if True, the output returned is an ndarray
@@ -53,7 +52,7 @@ def convolve_matrices(matrix1: List[List[float]], matrix2: List[List[float]]) ->
     return product
 
 
-def apply_kernel(
+def apply_kernel_dot_product(
     channel: List[List[float]],
     kernel: List[List[float]],
     row_index: int,
@@ -81,7 +80,11 @@ def apply_kernel(
 
 
 def slide_kernel_over_image(
-    channel: List[List[float]], kernel: List[List[float]], row_index: int, stride: int
+    channel: List[List[float]],
+    kernel: List[List[float]],
+    row_index: int,
+    stride: int,
+    apply: function = apply_kernel_dot_product,
 ) -> List[float]:
     """Applies the 2D kernel across the columns of 1 image channel.
 
@@ -90,6 +93,7 @@ def slide_kernel_over_image(
         kernel: 2D array representing the parameters to use
         row_index, col_index: int: the coordinates of the upper left corner
                             of the block of pixels being convolved
+        apply: function - the operation computed at each window location
 
     Returns: np.array: 1D array of the resulting values from performing
                         the convolution at each "block" of pixels on the channel
@@ -101,9 +105,7 @@ def slide_kernel_over_image(
     starting_col_ndx = 0
     while starting_col_ndx <= len(channel[0]) - kernel_w:
         # compute the convolution
-        conv_block_of_pixels = apply_kernel(
-            channel, kernel, row_index, starting_col_ndx
-        )
+        conv_block_of_pixels = apply(channel, kernel, row_index, starting_col_ndx)
         # add it to the output
         conv_channel_row.append(conv_block_of_pixels)
         # move on to the next starting column, using the stride
@@ -248,6 +250,7 @@ def convolution(
 
 class TLSFitter:
     """This class is a useful abstraction for using Total Least Sqaures to fit lines."""
+
     # TODO: utilize this Python gist for implementation: https://gist.github.com/galenseilis/29935da21d5c34a197bf1ec91dd30f9e
     pass
 
