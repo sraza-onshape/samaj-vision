@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .gaussian_base import BaseGaussianFilter
+from . import ops
 from .ops import (
     convolution as convolution_op,
     pad as padding_op,
@@ -26,7 +27,7 @@ class BaseCornerDetector(metaclass=ABCMeta):
 
 class HarrisCornerDetector(BaseCornerDetector):
     CORNER_RESPONSE_CONSTANT = 0.05
-    TOP_MANY_FEATURES_TO_DETECT = 1000  # as outlined in the assigment description
+    TOP_MANY_FEATURES_TO_DETECT = 1000  # as outlined in the hw 3 description
 
     def detect_features(
         self,
@@ -35,7 +36,7 @@ class HarrisCornerDetector(BaseCornerDetector):
     ) -> np.ndarray:
         """TODO[Zain]"""
 
-        ### HELPER(S)
+        ### HELPERS
         def _compute_derivatives_in_gaussian_window(
             image: np.ndarray,
             gaussian_window: List[List[float]],
@@ -59,7 +60,11 @@ class HarrisCornerDetector(BaseCornerDetector):
                 ),
             )
             image_list = image.tolist()
-            (hessian_xx, hessian_yy, hessian_xy) = (
+            (
+                hessian_xx,
+                hessian_yy,
+                hessian_xy
+            ) = (
                 np.array(
                     convolution_op(
                         image_list, second_order_derivator_x, padding_type="zero"
@@ -78,7 +83,11 @@ class HarrisCornerDetector(BaseCornerDetector):
             )
 
             # compute the second moment matrix in a Gaussian window around each pixel
-            (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy) = (
+            (
+                convolved_hessian_xx,
+                convolved_hessian_yy,
+                convolved_hessian_xy
+            ) = (
                 np.array(
                     convolution_op(hessian_xx, gaussian_window, padding_type="zero")
                 ),
@@ -100,6 +109,7 @@ class HarrisCornerDetector(BaseCornerDetector):
             convolved_hessian_xy: np.ndarray,
             stride: int = 1,
         ) -> np.array:
+            """TODO[Zain] add docstring"""
             # ensure the corner response matrix has the same dims as the input image
             convolved_hessian_xx, _, _ = padding_op(
                 convolved_hessian_xx, kernel, stride, "zero"
@@ -118,10 +128,10 @@ class HarrisCornerDetector(BaseCornerDetector):
             starting_row_ndx = 0
             while starting_row_ndx <= len(convolved_hessian_xy) - kernel_h:
                 # convolve the next row of this response
-                conv_channel_row = list()
+                response_row = list()
                 starting_col_ndx = 0
                 while starting_col_ndx <= len(convolved_hessian_xy[0]) - kernel_w:
-                    # compute the convolutions
+                    # compute the response for this window
                     col_index = starting_col_ndx
                     block_of_derivative_xx = convolved_hessian_xx[
                         starting_row_ndx : (kernel_h + starting_row_ndx),
@@ -152,12 +162,11 @@ class HarrisCornerDetector(BaseCornerDetector):
                     corner_response_element = determinant - (
                         self.CORNER_RESPONSE_CONSTANT * (trace**2)
                     )
-                    conv_channel_row.append(corner_response_element)
+                    response_row.append(corner_response_element)
                     # move on to the next starting column, using the stride
                     starting_col_ndx += stride
-
-                # now, add the convolved row to the list
-                corner_response.append(conv_channel_row)
+                # now, add the new row to the list
+                corner_response.append(response_row)
                 # move to the next starting row for the corner response calculation
                 starting_row_ndx += stride
             return np.array(corner_response)
@@ -177,7 +186,9 @@ class HarrisCornerDetector(BaseCornerDetector):
             convolved_hessian_yy,
             convolved_hessian_xy,
         )
-        # TODO[Zain]: add non-max suppression
+
+        if use_non_max_suppression is True:
+            corner_response = ops.non_max_suppression_2D(corner_response)
 
         return corner_response
 
