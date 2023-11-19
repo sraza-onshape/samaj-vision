@@ -26,13 +26,13 @@ def compute_similarity(
         mode: Literal[SimilarityMeasure.NCC, SimilarityMeasure.SSD],
         arr1: np.ndarray,
         arr2: np.ndarray
-    ):
+    ) -> float:
     ### HELPERS
-    def _compute_ssd(arr1: np.ndarray, arr2: np.ndarray) -> np.ndarray:
+    def _compute_ssd(arr1: np.ndarray, arr2: np.ndarray) -> float:
         """Output array has a shape of (1,)."""
         return np.sum(arr1 - arr2)
 
-    def _compute_ncc(arr1: np.ndarray, arr2: np.ndarray) -> np.ndarray:
+    def _compute_ncc(arr1: np.ndarray, arr2: np.ndarray) -> float:
         """Output array has a shape of (1,)."""
         deviations1 = arr1 - arr1.mean()
         deviations2 = arr2 - arr2.mean()
