@@ -1,14 +1,52 @@
 from enum import Enum
-from typing import Callable, List, Tuple, Union
+from typing import (
+    Callable,
+    List,
+    Literal,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from PIL import Image
 
-# TODO; add enums for filters and similarity measures
+
 class Filter2D(Enum):
     HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
     IDENTITY_FILTER = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
     VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+
+
+class SimilarityMeasure(Enum):
+    SSD = "sum_squared_difference"
+    NCC = "normalized_cross_correlation"  # aka, the Pearson Correlation Coef
+
+
+def compute_similarity(
+        mode: Literal[SimilarityMeasure.NCC, SimilarityMeasure.SSD],
+        arr1: np.ndarray,
+        arr2: np.ndarray
+    ):
+    ### HELPERS
+    def _compute_ssd(arr1: np.ndarray, arr2: np.ndarray) -> np.ndarray:
+        """Output array has a shape of (1,)."""
+        return np.sum(arr1 - arr2)
+
+    def _compute_ncc(arr1: np.ndarray, arr2: np.ndarray) -> np.ndarray:
+        """Output array has a shape of (1,)."""
+        deviations1 = arr1 - arr1.mean()
+        deviations2 = arr2 - arr2.mean()
+
+        numerator = np.sum(deviations1 * deviations2)
+        denominator = np.sqrt(np.sum(deviations1)) * np.sqrt(np.sum(deviations2))
+
+        return numerator / denominator
+
+    ### DRIVER
+    if mode == SimilarityMeasure.SSD:
+        return _compute_ssd(arr1, arr2)
+    elif mode == SimilarityMeasure.NCC:
+        return _compute_ncc(arr1, arr2)
 
 
 def load_image(
