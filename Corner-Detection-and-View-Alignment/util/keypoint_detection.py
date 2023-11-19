@@ -6,7 +6,7 @@ import numpy as np
 from .gaussian_base import BaseGaussianFilter
 from .ops import (
     convolution as convolution_op,
-    pad as padding_op,
+    non_max_suppression_2D as suppression_op,
     HORIZONTAL_SOBEL_FILTER,
     IDENTITY_FILTER,
     VERTICAL_SOBEL_FILTER,
@@ -38,48 +38,6 @@ class HessianDetector(AbstractKeypointDetector):
     def find_keypoints(
         self, image: np.array, percentile: float = DEFAULT_PERCENTILE_FOR_DETERMINANT
     ) -> np.array:
-        ### HELPERS
-        def _suppress(keypoints: np.array) -> np.array:
-            """After the determinant has been thresholded, use non-max suppression to recover more distinguishable keypoints."""
-            # prevent potential loss of keypoints via padding
-            padded_matrix, num_added_rows, num_added_cols = padding_op(
-                keypoints.tolist(),
-                img_filter=IDENTITY_FILTER,
-                stride=1,
-                padding_type="zero",
-            )
-            # traverse the matrix, to begin non-max suppression
-            for center_val_row in range(
-                num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)
-            ):
-                for center_val_col in range(
-                    num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)
-                ):
-                    # determine if the given value should be suppressed, or its neighbors
-                    center_val = padded_matrix[center_val_row][center_val_col]
-                    neighbors = padded_matrix[
-                        center_val_row - 1 : center_val_row + 2,
-                        center_val_col - 1 : center_val_col + 2,
-                    ]
-                    neighbors[1][
-                        1
-                    ] = 0  # hack to prevent the center value from "self-suppressing" (I have no idea, I made that term up)
-                    # zero out the appropiate value(s)
-                    if center_val > neighbors.max():  # suppression of neighbors
-                        padded_matrix[
-                            center_val_row - 1 : center_val_row + 2,
-                            center_val_col - 1 : center_val_col + 2,
-                        ] = 0
-                        padded_matrix[center_val_row][center_val_col] = center_val
-                    else:  # suppression of the center
-                        padded_matrix[center_val_row][center_val_col] = 0
-
-            # return the modified matrix - TODO[optimize later]
-            return padded_matrix[
-                num_added_rows // 2 : keypoints.shape[0] - (num_added_rows // 2),
-                num_added_cols // 2 : keypoints.shape[1] - (num_added_cols // 2),
-            ]
-
         ### DRIVER
         # compute the second order partial derivatives
         (
@@ -129,7 +87,7 @@ class HessianDetector(AbstractKeypointDetector):
         )
 
         # zero out any non-keypoints - via non max suppression
-        keypoints_suppressed = _suppress(keypoints)
+        keypoints_suppressed = suppression_op(keypoints)
 
         keypoint_locations = [[], []]
         for y in range(keypoints_suppressed.shape[0]):
