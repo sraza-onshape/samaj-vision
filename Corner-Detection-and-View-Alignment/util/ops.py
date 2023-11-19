@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-from typing import List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 
 HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
@@ -84,7 +84,7 @@ def slide_kernel_over_image(
     kernel: List[List[float]],
     row_index: int,
     stride: int,
-    apply: function = apply_kernel_dot_product,
+    apply: Callable = apply_kernel_dot_product,
 ) -> List[float]:
     """Applies the 2D kernel across the columns of 1 image channel.
 
@@ -168,7 +168,7 @@ def pad(
         # add the original image (extend its rows with zeros)
         for row in image:
             zeros = [0 for _ in range(padding_dist_x // 2)]
-            padded_row = zeros + row + zeros  # TODO[Zain]: optimize speed later
+            padded_row = np.concatenate([zeros, row, zeros])
             padded_image.append(padded_row)
         # add the rows (at the end) that are all 0  - TODO[Zain]: remove duplicated code later
         for _ in range(padding_dist_y // 2):
