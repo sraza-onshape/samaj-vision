@@ -1,7 +1,8 @@
-import abc
+import abc, heapq
 from abc import ABCMeta
 from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from .gaussian_base import BaseGaussianFilter
@@ -9,7 +10,7 @@ from .ops import (
     convolution as convolution_op,
     pad as padding_op,
     convolve_matrices as convolve,
-    # pad as padding_op,
+    pad as padding_op,
     HORIZONTAL_SOBEL_FILTER,
     # IDENTITY_FILTER,
     VERTICAL_SOBEL_FILTER,
@@ -25,6 +26,7 @@ class BaseCornerDetector(metaclass=ABCMeta):
 
 class HarrisCornerDetector(BaseCornerDetector):
     CORNER_RESPONSE_CONSTANT = 0.05
+    TOP_MANY_FEATURES_TO_DETECT = 1000  # as outlined in the assigment description
 
     def detect_features(
         self,
@@ -32,6 +34,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         use_non_max_suppression: bool = False,
     ) -> np.ndarray:
         """TODO[Zain]"""
+
         ### HELPER(S)
         def _compute_derivatives_in_gaussian_window(
             image: np.ndarray,
@@ -98,13 +101,13 @@ class HarrisCornerDetector(BaseCornerDetector):
             stride: int = 1,
         ) -> np.array:
             # ensure the corner response matrix has the same dims as the input image
-            convolved_hessian_xx = padding_op(
+            convolved_hessian_xx, _, _ = padding_op(
                 convolved_hessian_xx, kernel, stride, "zero"
             )
-            convolved_hessian_yy = padding_op(
+            convolved_hessian_yy, _, _ = padding_op(
                 convolved_hessian_yy, kernel, stride, "zero"
             )
-            convolved_hessian_xy = padding_op(
+            convolved_hessian_xy, _, _ = padding_op(
                 convolved_hessian_xy, kernel, stride, "zero"
             )
 
@@ -160,27 +163,57 @@ class HarrisCornerDetector(BaseCornerDetector):
             return np.array(corner_response)
 
         ### DRIVER
-        # compute second moment matrix
         gaussian_window = BaseGaussianFilter().create_gaussian_filter()
-        (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy) = _compute_derivatives_in_gaussian_window(
+        (
+            convolved_hessian_xx,
+            convolved_hessian_yy,
+            convolved_hessian_xy,
+        ) = _compute_derivatives_in_gaussian_window(
             image, gaussian_window=gaussian_window
         )
         corner_response = _compute_corner_response(
             gaussian_window,
             convolved_hessian_xx,
             convolved_hessian_yy,
-            convolved_hessian_xy
+            convolved_hessian_xy,
         )
-
         # TODO[Zain]: add non-max suppression
+
         return corner_response
 
     @classmethod
-    def execute_and_visualize(cls, a):
-        # TODO[Zain] - beef this up later
+    def execute_and_visualize(
+        cls: "HarrisCornerDetector",
+        image: np.ndarray,
+        image_name: str,
+        top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
+        use_non_max_suppression: bool = False,
+    ):
         # detect_features
+        detector = cls()
+        corner_response = detector.detect_features(image, use_non_max_suppression)
         # pick top 1000
+        height, width = corner_response.shape
+        coordinate_value_pairs = np.zeros((width * height, 3))
+        for val_index in range(coordinate_value_pairs.shape[0]):
+            row_index = val_index // width
+            col_index = val_index - (width * row_index)
+            coordinate_value_pairs[val_index] = [
+                row_index,
+                col_index,
+                corner_response[row_index, col_index],
+            ]
+        top_k_points = np.array(heapq.nlargest(
+            top_many_features,
+            coordinate_value_pairs,
+            key=lambda coords_followed_by_val: coords_followed_by_val[2],
+        ))
         # plotting
+        plt.imshow(image, cmap="gray")
+        plt.scatter(y=top_k_points[:, 0], x=top_k_points[:, 1], color="red")
+        plt.title(f'Corner Points Detected for Image: "{image_name}"')
+        plt.show()
+
         return super().execute_and_visualize()
 
 
