@@ -1,13 +1,14 @@
-import numpy as np
-from PIL import Image
+from enum import Enum
 from typing import Callable, List, Tuple, Union
 
+import numpy as np
+from PIL import Image
 
-HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-
-IDENTITY_FILTER = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
-
-VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+# TODO; add enums for filters and similarity measures
+class Filter2D(Enum):
+    HORIZONTAL_SOBEL_FILTER = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+    IDENTITY_FILTER = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
+    VERTICAL_SOBEL_FILTER = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
 
 
 def load_image(
@@ -253,7 +254,7 @@ def non_max_suppression_2D(matrix: np.array) -> np.array:
     # prevent potential loss of keypoints via padding
     padded_matrix, num_added_rows, num_added_cols = pad(
         matrix,
-        img_filter=IDENTITY_FILTER,
+        img_filter=Filter2D.IDENTITY_FILTER,
         stride=1,
         padding_type="zero",
     )

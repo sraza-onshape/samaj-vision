@@ -12,9 +12,7 @@ from .ops import (
     pad as padding_op,
     convolve_matrices as convolve,
     pad as padding_op,
-    HORIZONTAL_SOBEL_FILTER,
-    # IDENTITY_FILTER,
-    VERTICAL_SOBEL_FILTER,
+    Filter2D,
 )
 
 
@@ -48,23 +46,23 @@ class HarrisCornerDetector(BaseCornerDetector):
                 second_order_derivator_xy,
             ) = (
                 convolution_op(
-                    HORIZONTAL_SOBEL_FILTER,
-                    HORIZONTAL_SOBEL_FILTER,
+                    Filter2D.HORIZONTAL_SOBEL_FILTER,
+                    Filter2D.HORIZONTAL_SOBEL_FILTER,
                     padding_type="zero",
                 ),
                 convolution_op(
-                    VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+                    Filter2D.VERTICAL_SOBEL_FILTER,
+                    Filter2D.VERTICAL_SOBEL_FILTER,
+                    padding_type="zero"
                 ),
                 convolution_op(
-                    HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+                    Filter2D.HORIZONTAL_SOBEL_FILTER,
+                    Filter2D.VERTICAL_SOBEL_FILTER,
+                    padding_type="zero"
                 ),
             )
             image_list = image.tolist()
-            (
-                hessian_xx,
-                hessian_yy,
-                hessian_xy
-            ) = (
+            (hessian_xx, hessian_yy, hessian_xy) = (
                 np.array(
                     convolution_op(
                         image_list, second_order_derivator_x, padding_type="zero"
@@ -83,11 +81,7 @@ class HarrisCornerDetector(BaseCornerDetector):
             )
 
             # compute the second moment matrix in a Gaussian window around each pixel
-            (
-                convolved_hessian_xx,
-                convolved_hessian_yy,
-                convolved_hessian_xy
-            ) = (
+            (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy) = (
                 np.array(
                     convolution_op(hessian_xx, gaussian_window, padding_type="zero")
                 ),
@@ -192,6 +186,30 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         return corner_response
 
+    def pick_top_features(
+        self,
+        corner_response: np.ndarray,
+        top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
+    ):
+        """TODO[Zain]: add docstring"""
+        height, width = corner_response.shape
+        coordinate_value_pairs = np.zeros((width * height, 3))
+        for val_index in range(coordinate_value_pairs.shape[0]):
+            row_index = val_index // width
+            col_index = val_index - (width * row_index)
+            coordinate_value_pairs[val_index] = [
+                row_index,
+                col_index,
+                corner_response[row_index, col_index],
+            ]
+        return np.array(
+            heapq.nlargest(
+                top_many_features,
+                coordinate_value_pairs,
+                key=lambda coords_followed_by_val: coords_followed_by_val[2],
+            )
+        )
+
     @classmethod
     def execute_and_visualize(
         cls: "HarrisCornerDetector",
@@ -203,22 +221,33 @@ class HarrisCornerDetector(BaseCornerDetector):
         # detect_features
         detector = cls()
         corner_response = detector.detect_features(image, use_non_max_suppression)
-        # pick top 1000
-        height, width = corner_response.shape
-        coordinate_value_pairs = np.zeros((width * height, 3))
-        for val_index in range(coordinate_value_pairs.shape[0]):
-            row_index = val_index // width
-            col_index = val_index - (width * row_index)
-            coordinate_value_pairs[val_index] = [
-                row_index,
-                col_index,
-                corner_response[row_index, col_index],
-            ]
-        top_k_points = np.array(heapq.nlargest(
-            top_many_features,
-            coordinate_value_pairs,
-            key=lambda coords_followed_by_val: coords_followed_by_val[2],
-        ))
+        # pick top features
+        top_k_points = detector.pick_top_features(corner_response, top_many_features)
+        # plotting
+        plt.imshow(image, cmap="gray")
+        plt.scatter(y=top_k_points[:, 0], x=top_k_points[:, 1], color="red")
+        plt.title(f'Corner Points Detected for Image: "{image_name}"')
+        plt.show()
+
+        return super().execute_and_visualize()
+
+    @classmethod
+    def visualize_patch_similarity(
+        cls: "HarrisCornerDetector",
+        img1: np.ndarray,
+        img2: np.ndarray,
+        plot_title: str,
+        top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
+        use_non_max_suppression: bool = False,
+        similarity_metric=...
+    ):
+        # detect_features
+        detector = cls()
+        corner_response1 = detector.detect_features(img1, use_non_max_suppression)
+        corner_response2 = detector.detect_features(img2, use_non_max_suppression)
+        # pick top features
+        top_k_points1 = detector.pick_top_features(corner_response1, top_many_features)
+        top_k_points2 = detector.pick_top_features(corner_response2, top_many_features)
         # plotting
         plt.imshow(image, cmap="gray")
         plt.scatter(y=top_k_points[:, 0], x=top_k_points[:, 1], color="red")

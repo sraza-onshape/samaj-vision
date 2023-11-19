@@ -7,9 +7,7 @@ from .gaussian_base import BaseGaussianFilter
 from .ops import (
     convolution as convolution_op,
     non_max_suppression_2D as suppression_op,
-    HORIZONTAL_SOBEL_FILTER,
-    IDENTITY_FILTER,
-    VERTICAL_SOBEL_FILTER,
+    Filter2D,
 )
 
 
@@ -46,13 +44,19 @@ class HessianDetector(AbstractKeypointDetector):
             second_order_derivator_xy,
         ) = (
             convolution_op(
-                HORIZONTAL_SOBEL_FILTER, HORIZONTAL_SOBEL_FILTER, padding_type="zero"
+                Filter2D.HORIZONTAL_SOBEL_FILTER,
+                Filter2D.HORIZONTAL_SOBEL_FILTER,
+                padding_type="zero",
             ),
             convolution_op(
-                VERTICAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+                Filter2D.VERTICAL_SOBEL_FILTER,
+                Filter2D.VERTICAL_SOBEL_FILTER,
+                padding_type="zero",
             ),
             convolution_op(
-                HORIZONTAL_SOBEL_FILTER, VERTICAL_SOBEL_FILTER, padding_type="zero"
+                Filter2D.HORIZONTAL_SOBEL_FILTER,
+                Filter2D.VERTICAL_SOBEL_FILTER,
+                padding_type="zero",
             ),
         )
 
