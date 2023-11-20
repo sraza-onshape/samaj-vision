@@ -44,18 +44,18 @@ class HessianDetector(AbstractKeypointDetector):
             second_order_derivator_xy,
         ) = (
             convolution_op(
-                Filter2D.HORIZONTAL_SOBEL_FILTER,
-                Filter2D.HORIZONTAL_SOBEL_FILTER,
+                Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                 padding_type="zero",
             ),
             convolution_op(
-                Filter2D.VERTICAL_SOBEL_FILTER,
-                Filter2D.VERTICAL_SOBEL_FILTER,
+                Filter2D.VERTICAL_SOBEL_FILTER.value,
+                Filter2D.VERTICAL_SOBEL_FILTER.value,
                 padding_type="zero",
             ),
             convolution_op(
-                Filter2D.HORIZONTAL_SOBEL_FILTER,
-                Filter2D.VERTICAL_SOBEL_FILTER,
+                Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                Filter2D.VERTICAL_SOBEL_FILTER.value,
                 padding_type="zero",
             ),
         )

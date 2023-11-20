@@ -49,18 +49,18 @@ class HarrisCornerDetector(BaseCornerDetector):
                 second_order_derivator_xy,
             ) = (
                 convolution_op(
-                    Filter2D.HORIZONTAL_SOBEL_FILTER,
-                    Filter2D.HORIZONTAL_SOBEL_FILTER,
+                    Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                    Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                     padding_type="zero",
                 ),
                 convolution_op(
-                    Filter2D.VERTICAL_SOBEL_FILTER,
-                    Filter2D.VERTICAL_SOBEL_FILTER,
+                    Filter2D.VERTICAL_SOBEL_FILTER.value,
+                    Filter2D.VERTICAL_SOBEL_FILTER.value,
                     padding_type="zero",
                 ),
                 convolution_op(
-                    Filter2D.HORIZONTAL_SOBEL_FILTER,
-                    Filter2D.VERTICAL_SOBEL_FILTER,
+                    Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                    Filter2D.VERTICAL_SOBEL_FILTER.value,
                     padding_type="zero",
                 ),
             )
@@ -253,14 +253,19 @@ class HarrisCornerDetector(BaseCornerDetector):
             index2: int,
             array1: np.ndarray,
             array2: np.ndarray,
-            compute_metric: Literal[SimilarityMeasure.SSD, SimilarityMeasure.NCC],
+            index_of_compare_val: int,
+            metric: Literal[SimilarityMeasure.SSD, SimilarityMeasure.NCC],
         ) -> Tuple[int, int, float]:
             """Return type represents: (index of 1, index of 2, similarity measure)."""
-            elem1, elem2 = (array1[index1].reshape(1, 1), array2[index2].reshape(1, 1))
+            icv = index_of_compare_val
+            elem1, elem2 = (
+                array1[index1][icv].reshape(1, 1),
+                array2[index2][icv].reshape(1, 1),
+            )
             return (
                 index1,
                 index2,
-                ops.compute_similarity(compute_metric, elem1, elem2),
+                ops.compute_similarity(metric, elem1, elem2),
             )
 
         ### DRIVER
@@ -276,15 +281,14 @@ class HarrisCornerDetector(BaseCornerDetector):
             _compute_similiarity_of_array_items,
             array1=top_k_points1,
             array2=top_k_points2,
-            compute_metric=similarity_metric,
+            metric=similarity_metric,
+            index_of_compare_val=2,
         )
-        similarities_shape = (
-            top_k_points1.shape[0] * top_k_points2.shape[0],
-            3,
-        )
-        similarities = np.fromfunction(
-            np.vectorize(custom_similarity_func), similarities_shape
-        )
+        # TODO[Zain - vectorize later]
+        similarities = list()
+        for index1 in range(top_k_points1.shape[0]):
+            for index2 in range(top_k_points2.shape[0]):
+                similarities.append(custom_similarity_func(index1, index2))
         top_similarities = np.array(
             heapq.nlargest(
                 top_many_similarities,
@@ -292,8 +296,10 @@ class HarrisCornerDetector(BaseCornerDetector):
                 key=lambda indicies_and_similarity: indicies_and_similarity[2],
             )
         )
-        assert (
-            top_similarities.shape[0] == top_many_similarities
+
+        assert top_similarities.shape == (
+            top_many_similarities,
+            3,
         ), f"Expected to pick up ({top_many_similarities}, 3) similarities, actually have: {top_similarities.shape}"
 
         # Create a new figure
@@ -309,6 +315,7 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         # Loop through the size list and draw lines between connected points
         for left_img_index, right_img_index, _ in top_similarities:
+            left_img_index, right_img_index = int(left_img_index), int(right_img_index)
             left_img_y, left_img_x, _ = top_k_points1[left_img_index]
             right_img_y, right_img_x, _ = top_k_points2[right_img_index]
             x_coords = [
@@ -334,6 +341,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         ax[1].set_xlim([0, left_img.shape[1] + right_img.shape[1]])
         ax[1].set_ylim([0, right_img.shape[0]])
 
+        plt.title(plot_title)
         plt.show()
 
         return super().execute_and_visualize()

@@ -292,7 +292,7 @@ def non_max_suppression_2D(matrix: np.array) -> np.array:
     # prevent potential loss of keypoints via padding
     padded_matrix, num_added_rows, num_added_cols = pad(
         matrix,
-        img_filter=Filter2D.IDENTITY_FILTER,
+        img_filter=Filter2D.IDENTITY_FILTER.value,
         stride=1,
         padding_type="zero",
     )

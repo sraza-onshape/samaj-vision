@@ -258,7 +258,7 @@ class HoughTransformDetector(AbstractLineDetector):
             keypoints = matrix
             padded_matrix, num_added_rows, num_added_cols = padding_op(
                 keypoints.tolist(),
-                img_filter=Filter2D.IDENTITY_FILTER,
+                img_filter=Filter2D.IDENTITY_FILTER.value,
                 stride=1,
                 padding_type="zero",
             )
