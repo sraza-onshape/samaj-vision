@@ -306,10 +306,12 @@ class HarrisCornerDetector(BaseCornerDetector):
         _, ax = plt.subplots(1, 2, figsize=(10, 5))
 
         # Plot the first image
+        # ax[0].invert_yaxis()
         ax[0].imshow(left_img, cmap="gray")
         ax[0].set_title("Left Image")
 
         # Plot the second image
+        # ax[1].invert_yaxis()
         ax[1].imshow(right_img, cmap="gray")
         ax[1].set_title("Right Image")
 
@@ -336,11 +338,12 @@ class HarrisCornerDetector(BaseCornerDetector):
             ax[1].plot(x_coords, y_coords, "g-")
 
         # Set axis limits to include the entire images
-        ax[0].set_xlim([0, left_img.shape[1] + right_img.shape[1]])
+        ax[0].set_xlim([0, left_img.shape[1]])
         ax[0].set_ylim([0, left_img.shape[0]])
-        ax[1].set_xlim([0, left_img.shape[1] + right_img.shape[1]])
+        ax[1].set_xlim([0, left_img.shape[1]])
         ax[1].set_ylim([0, right_img.shape[0]])
-
+        ax[0].invert_yaxis()
+        ax[1].invert_yaxis()
         plt.title(plot_title)
         plt.show()
 
