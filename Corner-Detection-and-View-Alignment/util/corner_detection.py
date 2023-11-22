@@ -1,8 +1,9 @@
 import abc, heapq
 from abc import ABCMeta
 import functools
-from typing import Callable, List, Literal, Tuple
+from typing import List, Literal, Tuple
 
+from matplotlib.patches import ConnectionPatch
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -11,7 +12,6 @@ from . import ops
 from .ops import (
     convolution as convolution_op,
     pad as padding_op,
-    convolve_matrices as convolve,
     pad as padding_op,
     Filter2D,
     SimilarityMeasure,
@@ -303,15 +303,13 @@ class HarrisCornerDetector(BaseCornerDetector):
         ), f"Expected to pick up ({top_many_similarities}, 3) similarities, actually have: {top_similarities.shape}"
 
         # Create a new figure
-        _, ax = plt.subplots(1, 2, figsize=(10, 5))
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
 
         # Plot the first image
-        # ax[0].invert_yaxis()
         ax[0].imshow(left_img, cmap="gray")
         ax[0].set_title("Left Image")
 
         # Plot the second image
-        # ax[1].invert_yaxis()
         ax[1].imshow(right_img, cmap="gray")
         ax[1].set_title("Right Image")
 
@@ -320,22 +318,21 @@ class HarrisCornerDetector(BaseCornerDetector):
             left_img_index, right_img_index = int(left_img_index), int(right_img_index)
             left_img_y, left_img_x, _ = top_k_points1[left_img_index]
             right_img_y, right_img_x, _ = top_k_points2[right_img_index]
-            x_coords = [
-                left_img_x,
-                right_img_x + left_img.shape[1],
-            ]  # Add img1 width to x-coordinate of the second point
-            y_coords = [left_img_y, right_img_y]
 
-            ax[0].plot(
-                *(left_img_x, left_img_y), "ro"
-            )  # Plot red dot on the left image
-            ax[1].plot(
-                *(right_img_x, right_img_y), "ro"
-            )  # Plot red dot on the right image
+            # Plot red dots on the images
+            ax[0].plot(left_img_x, left_img_y, "ro")
+            ax[1].plot(right_img_x, right_img_y, "ro")
 
             # Draw a line connecting the points
-            ax[0].plot(x_coords, y_coords, "g-")
-            ax[1].plot(x_coords, y_coords, "g-")
+            connector = ConnectionPatch(
+                xyA=(left_img_x, left_img_y),
+                coordsA=ax[0].transData,
+                xyB=(right_img_x, right_img_y),
+                coordsB=ax[1].transData,
+                color="green",
+            )
+
+            fig.add_artist(connector)
 
         # Set axis limits to include the entire images
         ax[0].set_xlim([0, left_img.shape[1]])
