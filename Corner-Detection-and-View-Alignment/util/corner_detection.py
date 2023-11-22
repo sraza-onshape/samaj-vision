@@ -283,14 +283,26 @@ class HarrisCornerDetector(BaseCornerDetector):
         )
         # TODO[Zain - vectorize later]
         similarities = list()
+        extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
         for index1 in range(top_k_points1.shape[0]):
+            similarities_for_one_point_in_one_image = list()
             for index2 in range(top_k_points2.shape[0]):
-                similarities.append(custom_similarity_func(index1, index2))
+                similarities_for_one_point_in_one_image.append(
+                    custom_similarity_func(index1, index2)
+                )
+            # choose the stronest correspondence in the 2nd image, to this single point
+            best_correspondence_for_one_point = max(
+                similarities_for_one_point_in_one_image,
+                key=extract_similarity
+            )
+            similarities.append(best_correspondence_for_one_point)
+
+        # choose the strongest correspondences overall, across all the points
         top_similarities = np.array(
             heapq.nlargest(
                 top_many_similarities,
                 similarities,
-                key=lambda indicies_and_similarity: indicies_and_similarity[2],
+                key=extract_similarity,
             )
         )
 
