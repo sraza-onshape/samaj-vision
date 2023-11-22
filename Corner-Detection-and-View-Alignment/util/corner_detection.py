@@ -10,9 +10,6 @@ import numpy as np
 from .gaussian_base import BaseGaussianFilter
 from . import ops
 from .ops import (
-    convolution as convolution_op,
-    pad as padding_op,
-    pad as padding_op,
     Filter2D,
     SimilarityMeasure,
 )
@@ -48,17 +45,17 @@ class HarrisCornerDetector(BaseCornerDetector):
                 second_order_derivator_y,
                 second_order_derivator_xy,
             ) = (
-                convolution_op(
+                ops.convolution(
                     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                     padding_type="zero",
                 ),
-                convolution_op(
+                ops.convolution(
                     Filter2D.VERTICAL_SOBEL_FILTER.value,
                     Filter2D.VERTICAL_SOBEL_FILTER.value,
                     padding_type="zero",
                 ),
-                convolution_op(
+                ops.convolution(
                     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                     Filter2D.VERTICAL_SOBEL_FILTER.value,
                     padding_type="zero",
@@ -67,17 +64,17 @@ class HarrisCornerDetector(BaseCornerDetector):
             image_list = image.tolist()
             (hessian_xx, hessian_yy, hessian_xy) = (
                 np.array(
-                    convolution_op(
+                    ops.convolution(
                         image_list, second_order_derivator_x, padding_type="zero"
                     )
                 ),
                 np.array(
-                    convolution_op(
+                    ops.convolution(
                         image_list, second_order_derivator_y, padding_type="zero"
                     )
                 ),
                 np.array(
-                    convolution_op(
+                    ops.convolution(
                         image_list, second_order_derivator_xy, padding_type="zero"
                     )
                 ),
@@ -86,13 +83,13 @@ class HarrisCornerDetector(BaseCornerDetector):
             # compute the second moment matrix in a Gaussian window around each pixel
             (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy) = (
                 np.array(
-                    convolution_op(hessian_xx, gaussian_window, padding_type="zero")
+                    ops.convolution(hessian_xx, gaussian_window, padding_type="zero")
                 ),
                 np.array(
-                    convolution_op(hessian_yy, gaussian_window, padding_type="zero")
+                    ops.convolution(hessian_yy, gaussian_window, padding_type="zero")
                 ),
                 np.array(
-                    convolution_op(hessian_xy, gaussian_window, padding_type="zero")
+                    ops.convolution(hessian_xy, gaussian_window, padding_type="zero")
                 ),
             )
 
@@ -108,13 +105,13 @@ class HarrisCornerDetector(BaseCornerDetector):
         ) -> np.array:
             """TODO[Zain] add docstring"""
             # ensure the corner response matrix has the same dims as the input image
-            convolved_hessian_xx, _, _ = padding_op(
+            convolved_hessian_xx, _, _ = ops.pad(
                 convolved_hessian_xx, kernel, stride, "zero"
             )
-            convolved_hessian_yy, _, _ = padding_op(
+            convolved_hessian_yy, _, _ = ops.pad(
                 convolved_hessian_yy, kernel, stride, "zero"
             )
-            convolved_hessian_xy, _, _ = padding_op(
+            convolved_hessian_xy, _, _ = ops.pad(
                 convolved_hessian_xy, kernel, stride, "zero"
             )
 
