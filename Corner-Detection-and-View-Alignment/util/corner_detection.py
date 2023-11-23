@@ -243,6 +243,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         similarity_metric: Literal[
             SimilarityMeasure.SSD, SimilarityMeasure.NCC
         ] = SimilarityMeasure.SSD,
+        window_side_length=3,  # for the patch we want to define around each corner point
     ):
         ### HELPER(S)
         def _compute_similiarity_of_array_items(
@@ -250,19 +251,33 @@ class HarrisCornerDetector(BaseCornerDetector):
             index2: int,
             array1: np.ndarray,
             array2: np.ndarray,
-            index_of_compare_val: int,
+            window_side_length: int,
             metric: Literal[SimilarityMeasure.SSD, SimilarityMeasure.NCC],
         ) -> Tuple[int, int, float]:
-            """Return type represents: (index of 1, index of 2, similarity measure)."""
-            icv = index_of_compare_val
-            elem1, elem2 = (
-                array1[index1][icv].reshape(1, 1),
-                array2[index2][icv].reshape(1, 1),
-            )
+            """
+            Return type represents: (index of 1, index of 2, similarity measure).
+
+            """
+            # get pixel patches
+            mock_filter = np.eye(window_side_length, window_side_length)
+            padded_img_1, _, _ = ops.pad(left_img, mock_filter, 1, "zero")
+            padded_img_2, _, _ = ops.pad(right_img, mock_filter, 1, "zero")
+
+            y1, x1 = array1[index1][:2].astype(int)
+            patch1 = padded_img_1[
+                y1 - 1 : (y1 - 1) + window_side_length,
+                x1 - 1 : (x1 - 1) + window_side_length,
+            ]
+            y2, x2 = array2[index2][:2].astype(int)
+            patch2 = padded_img_2[
+                y2 - 1 : (y2 - 1) + window_side_length,
+                x2 - 1 : (x2 - 1) + window_side_length,
+            ]
+            # TODO[Zain][2] - double check the similarity funcs can handle 2D arrays
             return (
                 index1,
                 index2,
-                ops.compute_similarity(metric, elem1, elem2),
+                ops.compute_similarity(metric, patch1, patch2),
             )
 
         ### DRIVER
@@ -279,7 +294,7 @@ class HarrisCornerDetector(BaseCornerDetector):
             array1=top_k_points1,
             array2=top_k_points2,
             metric=similarity_metric,
-            index_of_compare_val=2,
+            window_side_length=window_side_length,
         )
         # TODO[Zain - vectorize later]
         similarities = list()
@@ -292,8 +307,7 @@ class HarrisCornerDetector(BaseCornerDetector):
                 )
             # choose the stronest correspondence in the 2nd image, to this single point
             best_correspondence_for_one_point = max(
-                similarities_for_one_point_in_one_image,
-                key=extract_similarity
+                similarities_for_one_point_in_one_image, key=extract_similarity
             )
             similarities.append(best_correspondence_for_one_point)
 

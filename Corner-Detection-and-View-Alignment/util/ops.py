@@ -30,7 +30,7 @@ def compute_similarity(
     ### HELPERS
     def _compute_ssd(arr1: np.ndarray, arr2: np.ndarray) -> float:
         """Output array has a shape of (1,)."""
-        return np.sum(arr1 - arr2)
+        return np.sum((arr1 - arr2) ** 2)
 
     def _compute_ncc(arr1: np.ndarray, arr2: np.ndarray) -> float:
         """Output array has a shape of (1,)."""
