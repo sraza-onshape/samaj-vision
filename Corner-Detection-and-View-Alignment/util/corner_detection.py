@@ -232,7 +232,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         return super().execute_and_visualize()
 
     @classmethod
-    def visualize_patch_similarity(
+    def visualize_correspondences(
         cls: "HarrisCornerDetector",
         left_img: np.ndarray,
         right_img: np.ndarray,
@@ -241,7 +241,9 @@ class HarrisCornerDetector(BaseCornerDetector):
         top_many_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
         use_non_max_suppression: bool = False,
         similarity_metric: Literal[
-            SimilarityMeasure.SSD, SimilarityMeasure.NCC, SimilarityMeasure.COS,
+            SimilarityMeasure.SSD,
+            SimilarityMeasure.NCC,
+            SimilarityMeasure.COS,
         ] = SimilarityMeasure.COS,
         window_side_length=3,  # for the patch we want to define around each corner point
     ):
@@ -273,12 +275,80 @@ class HarrisCornerDetector(BaseCornerDetector):
                 y2 - 1 : (y2 - 1) + window_side_length,
                 x2 - 1 : (x2 - 1) + window_side_length,
             ]
-            # TODO[Zain][2] - double check the similarity funcs can handle 2D arrays
             return (
                 index1,
                 index2,
                 ops.compute_similarity(metric, patch1, patch2),
             )
+
+        def _compute_feature_descriptors(
+            image: np.ndarray,
+            corner_points: np.ndarray,
+            window_side_length: int,
+        ) -> List[Tuple[int, int, np.ndarray]]:
+            """
+            Return is a 2D array.
+            Each row of said array represents (
+                y_coordinate of corner point,
+                x_coordinate of corner point,
+                feature_descriptor
+            )
+
+            For the sake of simplicity - our feature descriptor is
+            just a 1D array of the patch, normalized to a
+            Standard Normal Gaussian.
+            """
+            # get pixel patches
+            mock_filter = np.eye(window_side_length, window_side_length)
+            padded_img, _, _ = ops.pad(image, mock_filter, 1, "zero")
+            descriptors = []
+
+            for corner in corner_points:
+                y, x, _ = corner.ravel()
+                y = int(y)
+                x = int(x)
+
+                # Ensure the patch is within the image boundaries
+                patch = padded_img[
+                    y - 1 : (y - 1) + window_side_length,
+                    x - 1 : (x - 1) + window_side_length,
+                ]
+
+                # Flatten the patch values to create the descriptor
+                descriptor = patch.flatten()
+
+                # Normalize to have zero mean and unit variance
+                descriptor = (
+                    (descriptor - np.mean(descriptor)) / np.std(descriptor)
+                    if np.std(descriptor) != 0
+                    else descriptor
+                )
+                descriptors.append((y, x, descriptor))
+
+            return descriptors
+
+        def _compute_similarities_against_feature_descriptors(
+            index1: int,
+            descriptors1: List[Tuple[int, int, np.ndarray]],
+            descriptors2: List[Tuple[int, int, np.ndarray]],
+            similarities_for_one_point_in_one_image: List = list(),
+        ) -> List:
+            for index2 in range(descriptors2.shape[0]):
+                # similarities_for_one_point_in_one_image.append(
+                #     custom_similarity_func(index1, index2)
+                # )
+                _, _, descriptor1 = descriptors1[index1]
+                _, _, descriptor2 = descriptors2[index2]
+                similarities_for_one_point_in_one_image.append(
+                    index1,
+                    index2,
+                    ops.compute_similarity(similarity_metric, descriptor1, descriptor2),
+                )
+            return similarities_for_one_point_in_one_image
+
+        v_compute_similarities_against_feature_descriptors = np.vectorize(
+            _compute_similarities_against_feature_descriptors
+        )
 
         ### DRIVER
         # detect_features
@@ -288,23 +358,25 @@ class HarrisCornerDetector(BaseCornerDetector):
         # pick top features
         top_k_points1 = detector.pick_top_features(corner_response1, top_many_features)
         top_k_points2 = detector.pick_top_features(corner_response2, top_many_features)
-        # compute the similarities, and then grab the highest ones
-        custom_similarity_func = functools.partial(
-            _compute_similiarity_of_array_items,
-            array1=top_k_points1,
-            array2=top_k_points2,
-            metric=similarity_metric,
-            window_side_length=window_side_length,
+        # compute feature descriptors, for top points
+        descriptors1 = _compute_feature_descriptors(
+            left_img, top_k_points1, window_side_length
         )
-        # TODO[Zain - vectorize later]
+        descriptors2 = _compute_feature_descriptors(
+            right_img, top_k_points2, window_side_length
+        )
+
+        # compute the similarities between the descriptors, and then grab the highest ones
         similarities = list()
         extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
-        for index1 in range(top_k_points1.shape[0]):
-            similarities_for_one_point_in_one_image = list()
-            for index2 in range(top_k_points2.shape[0]):
-                similarities_for_one_point_in_one_image.append(
-                    custom_similarity_func(index1, index2)
+        for index1 in range(descriptors1.shape[0]):
+            similarities_for_one_point_in_one_image = (
+                v_compute_similarities_against_feature_descriptors(
+                    index1,
+                    descriptors1,
+                    descriptors2
                 )
+            )
             # choose the stronest correspondence in the 2nd image, to this single point
             best_correspondence_for_one_point = max(
                 similarities_for_one_point_in_one_image, key=extract_similarity
