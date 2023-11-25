@@ -20,13 +20,18 @@ class Filter2D(Enum):
 class SimilarityMeasure(Enum):
     SSD = "sum_squared_difference"
     NCC = "normalized_cross_correlation"  # aka, the Pearson Correlation Coef
+    COS = "cosine_similarity"
 
 
 def compute_similarity(
-        mode: Literal[SimilarityMeasure.NCC, SimilarityMeasure.SSD],
-        arr1: np.ndarray,
-        arr2: np.ndarray
-    ) -> float:
+    mode: Literal[
+        SimilarityMeasure.NCC,
+        SimilarityMeasure.SSD,
+        SimilarityMeasure.COS,
+    ],
+    arr1: np.ndarray,
+    arr2: np.ndarray,
+) -> float:
     ### HELPERS
     def _compute_ssd(arr1: np.ndarray, arr2: np.ndarray) -> float:
         """Output array has a shape of (1,)."""
@@ -42,11 +47,17 @@ def compute_similarity(
 
         return numerator / denominator
 
+    def _compute_cosine_similarity(arr1: np.ndarray, arr2: np.ndarray) -> float:
+        """Output array has a shape of (1,)."""
+        return (arr1 @ arr2) / (np.linalg.norm(arr1) * np.linalg.norm(arr2))
+
     ### DRIVER
-    if mode == SimilarityMeasure.SSD:
-        return _compute_ssd(arr1, arr2)
-    elif mode == SimilarityMeasure.NCC:
-        return _compute_ncc(arr1, arr2)
+    measure_funcs = {
+        SimilarityMeasure.SSD: _compute_ssd,
+        SimilarityMeasure.NCC: _compute_ncc,
+        SimilarityMeasure.COS: _compute_cosine_similarity,
+    }
+    return measure_funcs[mode](arr1, arr2)
 
 
 def load_image(

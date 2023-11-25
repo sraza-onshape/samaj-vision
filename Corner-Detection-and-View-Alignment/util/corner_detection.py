@@ -241,8 +241,8 @@ class HarrisCornerDetector(BaseCornerDetector):
         top_many_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
         use_non_max_suppression: bool = False,
         similarity_metric: Literal[
-            SimilarityMeasure.SSD, SimilarityMeasure.NCC
-        ] = SimilarityMeasure.SSD,
+            SimilarityMeasure.SSD, SimilarityMeasure.NCC, SimilarityMeasure.COS,
+        ] = SimilarityMeasure.COS,
         window_side_length=3,  # for the patch we want to define around each corner point
     ):
         ### HELPER(S)
