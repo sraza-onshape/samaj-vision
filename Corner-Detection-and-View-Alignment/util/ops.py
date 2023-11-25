@@ -43,7 +43,7 @@ def compute_similarity(
         deviations2 = arr2 - arr2.mean()
 
         numerator = np.sum(deviations1 * deviations2)
-        denominator = np.sqrt(np.sum(deviations1)) * np.sqrt(np.sum(deviations2))
+        denominator = np.sqrt(np.sum(deviations1 ** 2) * np.sum(deviations2 ** 2))
 
         return numerator / denominator
 

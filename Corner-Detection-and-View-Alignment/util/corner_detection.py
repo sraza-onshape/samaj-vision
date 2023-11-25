@@ -294,25 +294,25 @@ class HarrisCornerDetector(BaseCornerDetector):
 
             return descriptors
 
-        def _compute_similarities_against_feature_descriptors(
-            index1: int,
-            descriptor1: np.ndarray,
-            descriptors2: List[Tuple[int, int, np.ndarray]],
-            similarities_for_one_point_in_one_image: List[Tuple[int, int, float]] = list(),
-        ) -> List[Tuple[int, int, float]]:
-            for index2 in range(len(descriptors2)):
-                _, _, descriptor2 = descriptors2[index2]
-                similarities_for_one_point_in_one_image.append(
-                    (
-                        index1,
-                        index2,
-                        ops.compute_similarity(
-                            similarity_metric, descriptor1, descriptor2
-                        ),
-                    )
-                )
-            return similarities_for_one_point_in_one_image
-        
+        # def _compute_similarities_against_feature_descriptors(
+        #     index1: int,
+        #     descriptor1: np.ndarray,
+        #     descriptors2: List[Tuple[int, int, np.ndarray]],
+        #     similarities_for_one_point_in_one_image: List[Tuple[int, int, float]] = list(),
+        # ) -> List[Tuple[int, int, float]]:
+        #     for index2 in range(len(descriptors2)):
+        #         _, _, descriptor2 = descriptors2[index2]
+        #         similarities_for_one_point_in_one_image.append(
+        #             (
+        #                 index1,
+        #                 index2,
+        #                 ops.compute_similarity(
+        #                     similarity_metric, descriptor1, descriptor2
+        #                 ),
+        #             )
+        #         )
+        #     return similarities_for_one_point_in_one_image
+
         ### DRIVER
         # detect_features
         detector = cls()
@@ -329,22 +329,46 @@ class HarrisCornerDetector(BaseCornerDetector):
             right_img, top_k_points2, window_side_length
         )
 
-        # compute the similarities between the descriptors, and then grab the highest ones
+        # compute the similarities between every possible pair of descriptors, and then grab the highest ones
         similarities = list()
+        existing_correspondence_pairs = (
+            set()
+        )  # prevent duplicate pairs of points from being plotted
         extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
         for index1 in range(len(descriptors1)):
             _, _, descriptor1 = descriptors1[index1]
-            similarities_for_one_point_in_one_image = (
-                # TODO[Zain]: if all works, replace this with the vectorized version, v_compute_similarities_against_feature_descriptors
-                _compute_similarities_against_feature_descriptors(
-                    index1, descriptor1, descriptors2
+
+            similarities_for_one_point_in_one_image = list()
+            for index2 in range(len(descriptors2)):
+                _, _, descriptor2 = descriptors2[index2]
+                similarities_for_one_point_in_one_image.append(
+                    (
+                        index1,
+                        index2,
+                        ops.compute_similarity(
+                            similarity_metric, descriptor1, descriptor2
+                        ),
+                    )
                 )
+
+            # choose the strongest correspondence in the 2nd image, to this single point
+            best_correspondences_for_one_point = sorted(
+                similarities_for_one_point_in_one_image,
+                key=extract_similarity,
+                reverse=True,
             )
-            # choose the stronest correspondence in the 2nd image, to this single point
-            best_correspondence_for_one_point = max(
-                similarities_for_one_point_in_one_image, key=extract_similarity
-            )
-            similarities.append(best_correspondence_for_one_point)
+            best_correspondence = None
+            for index1, index2, similarity_val in best_correspondences_for_one_point:
+                # break early once the best similarity found
+                if (
+                    (index1, index2) not in existing_correspondence_pairs
+                    and 
+                    (index2, index2) not in existing_correspondence_pairs
+                ):
+                    best_correspondence = [index1, index2, similarity_val]
+                    existing_correspondence_pairs.add((index1, index2))
+                    break
+            similarities.append(best_correspondence)
 
         # choose the strongest correspondences overall, across all the points
         top_similarities = np.array(
