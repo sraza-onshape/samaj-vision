@@ -248,39 +248,6 @@ class HarrisCornerDetector(BaseCornerDetector):
         window_side_length=3,  # for the patch we want to define around each corner point
     ):
         ### HELPER(S)
-        def _compute_similiarity_of_array_items(
-            index1: int,
-            index2: int,
-            array1: np.ndarray,
-            array2: np.ndarray,
-            window_side_length: int,
-            metric: Literal[SimilarityMeasure.SSD, SimilarityMeasure.NCC],
-        ) -> Tuple[int, int, float]:
-            """
-            Return type represents: (index of 1, index of 2, similarity measure).
-
-            """
-            # get pixel patches
-            mock_filter = np.eye(window_side_length, window_side_length)
-            padded_img_1, _, _ = ops.pad(left_img, mock_filter, 1, "zero")
-            padded_img_2, _, _ = ops.pad(right_img, mock_filter, 1, "zero")
-
-            y1, x1 = array1[index1][:2].astype(int)
-            patch1 = padded_img_1[
-                y1 - 1 : (y1 - 1) + window_side_length,
-                x1 - 1 : (x1 - 1) + window_side_length,
-            ]
-            y2, x2 = array2[index2][:2].astype(int)
-            patch2 = padded_img_2[
-                y2 - 1 : (y2 - 1) + window_side_length,
-                x2 - 1 : (x2 - 1) + window_side_length,
-            ]
-            return (
-                index1,
-                index2,
-                ops.compute_similarity(metric, patch1, patch2),
-            )
-
         def _compute_feature_descriptors(
             image: np.ndarray,
             corner_points: np.ndarray,
@@ -329,27 +296,23 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         def _compute_similarities_against_feature_descriptors(
             index1: int,
-            descriptors1: List[Tuple[int, int, np.ndarray]],
+            descriptor1: np.ndarray,
             descriptors2: List[Tuple[int, int, np.ndarray]],
-            similarities_for_one_point_in_one_image: List = list(),
-        ) -> List:
-            for index2 in range(descriptors2.shape[0]):
-                # similarities_for_one_point_in_one_image.append(
-                #     custom_similarity_func(index1, index2)
-                # )
-                _, _, descriptor1 = descriptors1[index1]
+            similarities_for_one_point_in_one_image: List[Tuple[int, int, float]] = list(),
+        ) -> List[Tuple[int, int, float]]:
+            for index2 in range(len(descriptors2)):
                 _, _, descriptor2 = descriptors2[index2]
                 similarities_for_one_point_in_one_image.append(
-                    index1,
-                    index2,
-                    ops.compute_similarity(similarity_metric, descriptor1, descriptor2),
+                    (
+                        index1,
+                        index2,
+                        ops.compute_similarity(
+                            similarity_metric, descriptor1, descriptor2
+                        ),
+                    )
                 )
             return similarities_for_one_point_in_one_image
-
-        v_compute_similarities_against_feature_descriptors = np.vectorize(
-            _compute_similarities_against_feature_descriptors
-        )
-
+        
         ### DRIVER
         # detect_features
         detector = cls()
@@ -369,12 +332,12 @@ class HarrisCornerDetector(BaseCornerDetector):
         # compute the similarities between the descriptors, and then grab the highest ones
         similarities = list()
         extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
-        for index1 in range(descriptors1.shape[0]):
+        for index1 in range(len(descriptors1)):
+            _, _, descriptor1 = descriptors1[index1]
             similarities_for_one_point_in_one_image = (
-                v_compute_similarities_against_feature_descriptors(
-                    index1,
-                    descriptors1,
-                    descriptors2
+                # TODO[Zain]: if all works, replace this with the vectorized version, v_compute_similarities_against_feature_descriptors
+                _compute_similarities_against_feature_descriptors(
+                    index1, descriptor1, descriptors2
                 )
             )
             # choose the stronest correspondence in the 2nd image, to this single point
