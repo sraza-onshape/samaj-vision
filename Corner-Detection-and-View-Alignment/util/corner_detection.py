@@ -1,6 +1,6 @@
 import abc, heapq
 from abc import ABCMeta
-from typing import List, Literal, Tuple
+from typing import Any, List, Tuple
 
 from matplotlib.patches import ConnectionPatch
 import matplotlib.pyplot as plt
@@ -11,6 +11,7 @@ from . import ops
 from .ops import (
     Filter2D,
     SimilarityMeasure,
+    ALL_POSSIBLE_SIMILARITY_MEASURES,
 )
 
 
@@ -230,88 +231,30 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         return super().execute_and_visualize()
 
-    @classmethod
-    def visualize_correspondences(
-        cls: "HarrisCornerDetector",
-        left_img: np.ndarray,
-        right_img: np.ndarray,
-        plot_title: str,
-        top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
-        top_many_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
-        use_non_max_suppression: bool = False,
-        similarity_metric: Literal[
-            SimilarityMeasure.SSD,
-            SimilarityMeasure.NCC,
-            SimilarityMeasure.COS,
+    @staticmethod
+    def compute_feature_correspondences(
+        descriptors: List[Tuple[int, int, np.ndarray]],
+        desired_num_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
+        similarity_metric: Any[
+            ALL_POSSIBLE_SIMILARITY_MEASURES
         ] = SimilarityMeasure.COS,
-        window_side_length=3,  # for the patch we want to define around each corner point
-    ):
-        ### HELPER(S)
-        def _compute_feature_descriptors(
-            image: np.ndarray,
-            corner_points: np.ndarray,
-            window_side_length: int,
-        ) -> List[Tuple[int, int, np.ndarray]]:
-            """
-            Return is a 2D array.
-            Each row of said array represents (
-                y_coordinate of corner point,
-                x_coordinate of corner point,
-                feature_descriptor
-            )
+    ) -> List[int, int, float]:
+        """
+        Computes a 2D list of feature correspondences.
 
-            For the sake of simplicity - our feature descriptor is
-            just a 1D array of the patch, normalized to a
-            Standard Normal Gaussian.
-            """
-            # get pixel patches
-            mock_filter = np.eye(window_side_length, window_side_length)
-            padded_img, _, _ = ops.pad(image, mock_filter, 1, "zero")
-            descriptors = []
+        The `descriptors` parameter is assumed to only contain 2 sets of descriptors:
+        one for each of the two images we have in HW 3.
 
-            for corner in corner_points:
-                y, x, _ = corner.ravel()
-                y = int(y)
-                x = int(x)
-
-                # Ensure the patch is within the image boundaries
-                patch = padded_img[
-                    y - 1 : (y - 1) + window_side_length,
-                    x - 1 : (x - 1) + window_side_length,
-                ]
-
-                # Flatten the patch values to create the descriptor
-                descriptor = patch.flatten()
-
-                # Normalize to have zero mean and unit variance
-                descriptor = (
-                    (descriptor - np.mean(descriptor)) / np.std(descriptor)
-                    if np.std(descriptor) != 0
-                    else descriptor
-                )
-                descriptors.append((y, x, descriptor))
-
-            return descriptors
-
-        ### DRIVER
-        # detect_features
-        detector = cls()
-        corner_response1 = detector.detect_features(left_img, use_non_max_suppression)
-        corner_response2 = detector.detect_features(right_img, use_non_max_suppression)
-        # pick top features
-        top_k_points1 = detector.pick_top_features(corner_response1, top_many_features)
-        top_k_points2 = detector.pick_top_features(corner_response2, top_many_features)
-        # compute feature descriptors, for top points
-        descriptors1 = _compute_feature_descriptors(
-            left_img, top_k_points1, window_side_length
+        Each nested list in the out follows the format of: (
+            int: index of a feature from image 1,
+            int: index of a feature from image 2,
+            float: the similarity between the two, if known
         )
-        descriptors2 = _compute_feature_descriptors(
-            right_img, top_k_points2, window_side_length
-        )
-
+        """
         # compute the similarities between every possible pair of descriptors, and then grab the highest ones
         similarities = list()
         # prevent duplicate pairs of points from being plotted
+        descriptors1, descriptors2 = descriptors
         existing_correspondence_pairs = set()
         extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
         for index1 in range(len(descriptors1)):
@@ -354,27 +297,114 @@ class HarrisCornerDetector(BaseCornerDetector):
             # the lower the measure, the better the correspondence
             top_similarities = np.array(
                 heapq.nsmallest(
-                    top_many_similarities,
+                    desired_num_similarities,
                     similarities,
                     key=extract_similarity,
                 )
             )
-        else:
+        elif (
+            similarity_metric == SimilarityMeasure.COS
+            or similarity_metric == SimilarityMeasure.NCC
+        ):
             # for these types of measures, bigger is better
             top_similarities = np.array(
                 heapq.nlargest(
-                    top_many_similarities,
+                    desired_num_similarities,
                     similarities,
                     key=extract_similarity,
                 )
             )
 
         assert top_similarities.shape == (
-            top_many_similarities,
+            desired_num_similarities,
             3,
-        ), f"Expected to pick up ({top_many_similarities}, 3) similarities, actually have: {top_similarities.shape}"
+        ), f"Expected to pick up ({desired_num_similarities}, 3) similarities, actually have: {top_similarities.shape}"
+        return top_similarities
 
-        # Create a new figure
+    @staticmethod
+    def compute_feature_descriptors(
+        image: np.ndarray,
+        corner_points: np.ndarray,
+        window_side_length: int,
+    ) -> List[Tuple[int, int, np.ndarray]]:
+        """
+        Return is a 2D array.
+        Each row of said array represents (
+            y_coordinate of corner point,
+            x_coordinate of corner point,
+            feature_descriptor
+        )
+
+        For the sake of simplicity - our feature descriptor is
+        just a 1D array of the patch, normalized to a
+        Standard Normal Gaussian.
+        """
+        # get pixel patches
+        mock_filter = np.eye(window_side_length, window_side_length)
+        padded_img, _, _ = ops.pad(image, mock_filter, 1, "zero")
+        descriptors = []
+
+        for corner in corner_points:
+            y, x, _ = corner.ravel()
+            y = int(y)
+            x = int(x)
+
+            # Ensure the patch is within the image boundaries
+            patch = padded_img[
+                y - 1 : (y - 1) + window_side_length,
+                x - 1 : (x - 1) + window_side_length,
+            ]
+
+            # Flatten the patch values to create the descriptor
+            descriptor = patch.flatten()
+
+            # Normalize to have zero mean and unit variance
+            descriptor = (
+                (descriptor - np.mean(descriptor)) / np.std(descriptor)
+                if np.std(descriptor) != 0
+                else descriptor
+            )
+            descriptors.append((y, x, descriptor))
+
+        return descriptors
+
+    @classmethod
+    def visualize_correspondences(
+        cls: "HarrisCornerDetector",
+        left_img: np.ndarray,
+        right_img: np.ndarray,
+        plot_title: str,
+        top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
+        desired_num_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
+        use_non_max_suppression: bool = False,
+        similarity_metric: Any[
+            ALL_POSSIBLE_SIMILARITY_MEASURES
+        ] = SimilarityMeasure.COS,
+        window_side_length=3,  # for the patch we want to define around each corner point
+    ):
+        ### DRIVER
+        # detect_features
+        detector = cls()
+        corner_response1 = detector.detect_features(left_img, use_non_max_suppression)
+        corner_response2 = detector.detect_features(right_img, use_non_max_suppression)
+        # pick top features
+        top_k_points1 = detector.pick_top_features(corner_response1, top_many_features)
+        top_k_points2 = detector.pick_top_features(corner_response2, top_many_features)
+        # compute feature descriptors, for top points
+        descriptors1 = cls.compute_feature_descriptors(
+            left_img, top_k_points1, window_side_length
+        )
+        descriptors2 = cls.compute_feature_descriptors(
+            right_img, top_k_points2, window_side_length
+        )
+
+        # Compute & plot the feature correspondences
+        top_similarities = cls.compute_feature_correspondences(
+            descriptors=[descriptors1, descriptors2],
+            desired_num_similarities=desired_num_similarities,
+            similarity_metric=similarity_metric,
+        )
+
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
 
         # Plot the first image

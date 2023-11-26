@@ -23,6 +23,9 @@ class SimilarityMeasure(Enum):
     COS = "cosine_similarity"
 
 
+ALL_POSSIBLE_SIMILARITY_MEASURES = [m.value for m in SimilarityMeasure]
+
+
 def compute_similarity(
     mode: Literal[
         SimilarityMeasure.NCC,
@@ -43,7 +46,7 @@ def compute_similarity(
         deviations2 = arr2 - arr2.mean()
 
         numerator = np.sum(deviations1 * deviations2)
-        denominator = np.sqrt(np.sum(deviations1 ** 2) * np.sum(deviations2 ** 2))
+        denominator = np.sqrt(np.sum(deviations1**2) * np.sum(deviations2**2))
 
         return numerator / denominator
 
