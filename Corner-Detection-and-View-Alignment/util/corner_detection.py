@@ -253,22 +253,29 @@ class HarrisCornerDetector(BaseCornerDetector):
         # prevent duplicate pairs of points from being plotted
         descriptors1, descriptors2 = descriptors
         existing_correspondence_pairs = set()
-        extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
+        rng = np.random.default_rng()
+        extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[4]
         for index1 in range(len(descriptors1)):
-            _, _, descriptor1 = descriptors1[index1]
+            left_y, left_x, descriptor1 = descriptors1[index1]
 
             similarities_for_one_point_in_one_image = list()
             for index2 in range(len(descriptors2)):
-                _, _, descriptor2 = descriptors2[index2]
-                similarities_for_one_point_in_one_image.append(
-                    (
-                        index1,
-                        index2,
+                right_y, right_x, descriptor2 = descriptors2[index2]
+
+                next_entry = ()
+                if similarity_metric is not SimilarityMeasure.NULL:
+                    next_entry = (
+                        left_y,
+                        left_x,
+                        right_y,
+                        right_x,
                         ops.compute_similarity(
                             similarity_metric, descriptor1, descriptor2
                         ),
                     )
-                )
+                else:
+                    next_entry = (left_y, left_x, right_y, right_x, np.random.random())
+                similarities_for_one_point_in_one_image.append(next_entry)
 
             # choose the strongest correspondence in the 2nd image, to this single point
             best_correspondences_for_one_point = sorted(
@@ -277,14 +284,11 @@ class HarrisCornerDetector(BaseCornerDetector):
                 reverse=True,
             )
             best_correspondence = None
-            for index1, index2, similarity_val in best_correspondences_for_one_point:
+            for y1, x1, y2, x2, similarity_val in best_correspondences_for_one_point:
                 # break early once the best similarity found
-                if (index1, index2) not in existing_correspondence_pairs and (
-                    index2,
-                    index2,
-                ) not in existing_correspondence_pairs:
-                    best_correspondence = [index1, index2, similarity_val]
-                    existing_correspondence_pairs.add((index1, index2))
+                if (y1, x1, y2, x2) not in existing_correspondence_pairs:
+                    best_correspondence = [y1, x1, y2, x2, similarity_val]
+                    existing_correspondence_pairs.add((y1, x1, y2, x2))
                     break
             similarities.append(best_correspondence)
 
@@ -311,11 +315,18 @@ class HarrisCornerDetector(BaseCornerDetector):
                     key=extract_similarity,
                 )
             )
+        elif similarity_metric == SimilarityMeasure.NULL:
+            top_similarities = rng.choice(
+                similarities,
+                size=desired_num_similarities,
+                replace=False,
+                axis=0,
+            )
 
         assert top_similarities.shape == (
             desired_num_similarities,
-            3,
-        ), f"Expected to pick up ({desired_num_similarities}, 3) similarities, actually have: {top_similarities.shape}"
+            5,
+        ), f"Expected to pick up ({desired_num_similarities}, 5) similarities, actually have: {top_similarities.shape}"
         return top_similarities
 
     @staticmethod
@@ -411,11 +422,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         ax[1].set_title("Right Image")
 
         # Loop through the size list and draw lines between connected points
-        for left_img_index, right_img_index, _ in top_similarities:
-            left_img_index, right_img_index = int(left_img_index), int(right_img_index)
-            left_img_y, left_img_x, _ = top_k_points1[left_img_index]
-            right_img_y, right_img_x, _ = top_k_points2[right_img_index]
-
+        for left_img_y, left_img_x, right_img_y, right_img_x, _ in top_similarities:
             # Plot red dots on the images
             ax[0].plot(left_img_x, left_img_y, "ro")
             ax[1].plot(right_img_x, right_img_y, "ro")

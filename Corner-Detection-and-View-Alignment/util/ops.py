@@ -21,6 +21,7 @@ class SimilarityMeasure(Enum):
     SSD = "sum_squared_difference"
     NCC = "normalized_cross_correlation"  # aka, the Pearson Correlation Coef
     COS = "cosine_similarity"
+    NULL = "randomness"  #  when selected, this means we don't actually care about similarity
 
 
 def compute_similarity(
