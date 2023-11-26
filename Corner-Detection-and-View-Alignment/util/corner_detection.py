@@ -1,6 +1,5 @@
 import abc, heapq
 from abc import ABCMeta
-import functools
 from typing import List, Literal, Tuple
 
 from matplotlib.patches import ConnectionPatch
@@ -294,25 +293,6 @@ class HarrisCornerDetector(BaseCornerDetector):
 
             return descriptors
 
-        # def _compute_similarities_against_feature_descriptors(
-        #     index1: int,
-        #     descriptor1: np.ndarray,
-        #     descriptors2: List[Tuple[int, int, np.ndarray]],
-        #     similarities_for_one_point_in_one_image: List[Tuple[int, int, float]] = list(),
-        # ) -> List[Tuple[int, int, float]]:
-        #     for index2 in range(len(descriptors2)):
-        #         _, _, descriptor2 = descriptors2[index2]
-        #         similarities_for_one_point_in_one_image.append(
-        #             (
-        #                 index1,
-        #                 index2,
-        #                 ops.compute_similarity(
-        #                     similarity_metric, descriptor1, descriptor2
-        #                 ),
-        #             )
-        #         )
-        #     return similarities_for_one_point_in_one_image
-
         ### DRIVER
         # detect_features
         detector = cls()
@@ -331,9 +311,8 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         # compute the similarities between every possible pair of descriptors, and then grab the highest ones
         similarities = list()
-        existing_correspondence_pairs = (
-            set()
-        )  # prevent duplicate pairs of points from being plotted
+        # prevent duplicate pairs of points from being plotted
+        existing_correspondence_pairs = set()
         extract_similarity = lambda indicies_and_similarity: indicies_and_similarity[2]
         for index1 in range(len(descriptors1)):
             _, _, descriptor1 = descriptors1[index1]
@@ -360,24 +339,35 @@ class HarrisCornerDetector(BaseCornerDetector):
             best_correspondence = None
             for index1, index2, similarity_val in best_correspondences_for_one_point:
                 # break early once the best similarity found
-                if (
-                    (index1, index2) not in existing_correspondence_pairs
-                    and 
-                    (index2, index2) not in existing_correspondence_pairs
-                ):
+                if (index1, index2) not in existing_correspondence_pairs and (
+                    index2,
+                    index2,
+                ) not in existing_correspondence_pairs:
                     best_correspondence = [index1, index2, similarity_val]
                     existing_correspondence_pairs.add((index1, index2))
                     break
             similarities.append(best_correspondence)
 
         # choose the strongest correspondences overall, across all the points
-        top_similarities = np.array(
-            heapq.nlargest(
-                top_many_similarities,
-                similarities,
-                key=extract_similarity,
+        top_similarities = []
+        if similarity_metric == SimilarityMeasure.SSD:
+            # the lower the measure, the better the correspondence
+            top_similarities = np.array(
+                heapq.nsmallest(
+                    top_many_similarities,
+                    similarities,
+                    key=extract_similarity,
+                )
             )
-        )
+        else:
+            # for these types of measures, bigger is better
+            top_similarities = np.array(
+                heapq.nlargest(
+                    top_many_similarities,
+                    similarities,
+                    key=extract_similarity,
+                )
+            )
 
         assert top_similarities.shape == (
             top_many_similarities,
