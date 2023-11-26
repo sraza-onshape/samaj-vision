@@ -23,9 +23,6 @@ class SimilarityMeasure(Enum):
     COS = "cosine_similarity"
 
 
-ALL_POSSIBLE_SIMILARITY_MEASURES = [m.value for m in SimilarityMeasure]
-
-
 def compute_similarity(
     mode: Literal[
         SimilarityMeasure.NCC,
@@ -64,7 +61,7 @@ def compute_similarity(
 
 
 def load_image(
-    filename: str, return_array: bool = False
+    filename: str, rotation_angle: int = 0, return_array: bool = False
 ) -> Union[List[List[int]], np.ndarray]:
     """
     Allows us to convert images from its binary form
@@ -72,13 +69,14 @@ def load_image(
 
     Parameters:
         filename(str): relative path to the image file
+        rotation_angle(int): in degrees
         return_array(bool): if True, the output returned is an ndarray
 
     Returns: array-like, pixel raster matrix
     """
     with Image.open(filename) as img:
-        # Convert the image to grayscale
-        img = img.convert("L")
+        # Convert the image to grayscale, and do any rotations as needed
+        img = img.convert("L").rotate(rotation_angle, expand=1)
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())  # currently, this is 1D

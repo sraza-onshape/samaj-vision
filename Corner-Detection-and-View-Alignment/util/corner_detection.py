@@ -1,6 +1,6 @@
 import abc, heapq
 from abc import ABCMeta
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 from matplotlib.patches import ConnectionPatch
 import matplotlib.pyplot as plt
@@ -11,7 +11,6 @@ from . import ops
 from .ops import (
     Filter2D,
     SimilarityMeasure,
-    ALL_POSSIBLE_SIMILARITY_MEASURES,
 )
 
 
@@ -235,10 +234,8 @@ class HarrisCornerDetector(BaseCornerDetector):
     def compute_feature_correspondences(
         descriptors: List[Tuple[int, int, np.ndarray]],
         desired_num_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
-        similarity_metric: Any[
-            ALL_POSSIBLE_SIMILARITY_MEASURES
-        ] = SimilarityMeasure.COS,
-    ) -> List[int, int, float]:
+        similarity_metric: SimilarityMeasure = SimilarityMeasure.COS,
+    ) -> Tuple[int, int, float]:
         """
         Computes a 2D list of feature correspondences.
 
@@ -377,9 +374,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         top_many_features: int = TOP_MANY_FEATURES_TO_DETECT,
         desired_num_similarities: int = TOP_MANY_SIMILARITIES_TO_SELECT,
         use_non_max_suppression: bool = False,
-        similarity_metric: Any[
-            ALL_POSSIBLE_SIMILARITY_MEASURES
-        ] = SimilarityMeasure.COS,
+        similarity_metric: SimilarityMeasure = SimilarityMeasure.COS,
         window_side_length=3,  # for the patch we want to define around each corner point
     ):
         ### DRIVER
