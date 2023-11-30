@@ -229,7 +229,8 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
         required_number_of_inliers: int = 3,  # as per the lecture notes from week 5
         distance_threshold: float = 3.0,  # TODO[asl TA baout this threshold]
         num_top_models_to_return: int = 1,  # as per the requirements in hw 3
-        do_logging: bool = False
+        do_logging: bool = False,
+        prevent_resampling = True,
     ) -> Tuple[List[Tuple[np.array, float]], int]:
         """
         Executes the RANSAC algorithm to fit multiple models across a dataset.
@@ -321,13 +322,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
                     distances.shape,
                     distances,
                 )
-            # for point in cc:
-            #     point = point[:2].reshape(2, 1)
-            #     reprojected_point = (m.dot(point) + b).reshape(2, 1)
-            #     dist = linalg.norm(point - reprojected_point)
-            #     # dist = _distance_from_a_point_to_a_line(m, b, point[1], point[0])
-            #     distances.append(dist)
-            # TODO[use more vectorization to compute distances]
+ 
             inlier_indices = np.where(distances < inlier_threshold)[0]
             if do_logging:
                 print(type(inlier_indices), len(inlier_indices), inlier_indices)
@@ -335,10 +330,12 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
             inliers = cc[inlier_indices]
 
             # ensure the same inliers not used twice, and return the info about this line
-            mask = np.ones(cc.shape[0], bool)
-            mask[inlier_indices] = 0
-            outlier_indices = np.where(mask == 1)  # .astype(int)
-            modified_correspondence_coords = cc[outlier_indices]
+            modified_correspondence_coords = cc
+            if prevent_resampling:
+                mask = np.ones(cc.shape[0], bool)
+                mask[inlier_indices] = 0
+                outlier_indices = np.where(mask == 1)  # .astype(int)
+                modified_correspondence_coords = cc[outlier_indices]
 
             return (modified_correspondence_coords, (inliers, (m, b)), distances)
 

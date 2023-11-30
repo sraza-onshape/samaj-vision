@@ -376,8 +376,52 @@ class HarrisCornerDetector(BaseCornerDetector):
 
         return descriptors
 
-    @classmethod
+    @staticmethod
     def visualize_correspondences(
+        left_img: np.ndarray,
+        right_img: np.ndarray,
+        correspondences: np.ndarray,
+        plot_title: str = "",
+    ):
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+        # Plot the first image
+        ax[0].imshow(left_img, cmap="gray")
+        ax[0].set_title("Left Image")
+
+        # Plot the second image
+        ax[1].imshow(right_img, cmap="gray")
+        ax[1].set_title("Right Image")
+
+        # Loop through the size list and draw lines between connected points
+        for left_img_y, left_img_x, right_img_y, right_img_x, _ in correspondences:
+            # Plot red dots on the images
+            ax[0].plot(left_img_x, left_img_y, "ro")
+            ax[1].plot(right_img_x, right_img_y, "ro")
+
+            # Draw a line connecting the points
+            connector = ConnectionPatch(
+                xyA=(left_img_x, left_img_y),
+                coordsA=ax[0].transData,
+                xyB=(right_img_x, right_img_y),
+                coordsB=ax[1].transData,
+                color="green",
+            )
+
+            fig.add_artist(connector)
+
+        # Set axis limits to include the entire images
+        ax[0].set_xlim([0, left_img.shape[1]])
+        ax[0].set_ylim([0, left_img.shape[0]])
+        ax[1].set_xlim([0, left_img.shape[1]])
+        ax[1].set_ylim([0, right_img.shape[0]])
+        ax[0].invert_yaxis()
+        ax[1].invert_yaxis()
+        plt.title(plot_title)
+        plt.show()
+
+    @classmethod
+    def find_and_visualize_correspondences(
         cls: "HarrisCornerDetector",
         left_img: np.ndarray,
         right_img: np.ndarray,
@@ -411,42 +455,12 @@ class HarrisCornerDetector(BaseCornerDetector):
             similarity_metric=similarity_metric,
         )
 
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-
-        # Plot the first image
-        ax[0].imshow(left_img, cmap="gray")
-        ax[0].set_title("Left Image")
-
-        # Plot the second image
-        ax[1].imshow(right_img, cmap="gray")
-        ax[1].set_title("Right Image")
-
-        # Loop through the size list and draw lines between connected points
-        for left_img_y, left_img_x, right_img_y, right_img_x, _ in top_similarities:
-            # Plot red dots on the images
-            ax[0].plot(left_img_x, left_img_y, "ro")
-            ax[1].plot(right_img_x, right_img_y, "ro")
-
-            # Draw a line connecting the points
-            connector = ConnectionPatch(
-                xyA=(left_img_x, left_img_y),
-                coordsA=ax[0].transData,
-                xyB=(right_img_x, right_img_y),
-                coordsB=ax[1].transData,
-                color="green",
-            )
-
-            fig.add_artist(connector)
-
-        # Set axis limits to include the entire images
-        ax[0].set_xlim([0, left_img.shape[1]])
-        ax[0].set_ylim([0, left_img.shape[0]])
-        ax[1].set_xlim([0, left_img.shape[1]])
-        ax[1].set_ylim([0, right_img.shape[0]])
-        ax[0].invert_yaxis()
-        ax[1].invert_yaxis()
-        plt.title(plot_title)
-        plt.show()
+        cls.visualize_correspondences(
+            left_img,
+            right_img,
+            top_similarities,
+            plot_title=plot_title
+        )
 
         return super().execute_and_visualize()
 
