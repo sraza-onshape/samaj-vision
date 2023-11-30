@@ -229,6 +229,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
         required_number_of_inliers: int = 3,  # as per the lecture notes from week 5
         distance_threshold: float = 3.0,  # TODO[asl TA baout this threshold]
         num_top_models_to_return: int = 1,  # as per the requirements in hw 3
+        do_logging: bool = False
     ) -> Tuple[List[Tuple[np.array, float]], int]:
         """
         Executes the RANSAC algorithm to fit multiple models across a dataset.
@@ -247,28 +248,12 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
             1) a list of n-tuples, representing the top k models. The elements in each tuple represent the following:
                 a) a matrix of the inlier points for that model
                 b) the 2nd (and following elements, if there are any) represent the parameters of the model found.
-                    E.g., in the case of a line, this would be the slope of the line (and then there'd be a 3rd element also, for the y-intercept).
+                    E.g., in the case of anaffine transform, this would be a 2x2 matrix representing any kind of rotation,
+                    and a 1D vector representing the translation .
             2) the number of iterations for which we ran RANSAC
         """
 
         ### HELPERS
-        def _distance_from_a_point_to_a_line(
-            slope: float, y_intercept: float, x_coord, y_coord
-        ):
-            """
-            Based on the math described on Wikipedia:
-            https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_an_equation
-            """
-            # get the params for the formula, from y = mx + b to ax + by + c = 0
-            a = slope
-            b = -1
-            c = y_intercept
-            # compute the distance
-            numerator = abs(a * x_coord + b * y_coord + c)
-            denominator = math.sqrt(sum([a**2, b**2]))
-
-            return numerator / denominator
-
         def _sample_line(
             correspondence_coordinates: np.array,
             t: float,
@@ -281,42 +266,79 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
             sample = cc[sample_indices]
 
             # Estimate an affine transformation
-            A = np.zeros(sample.shape[0] * 2, 6)
-            b = np.zeros(sample.shape[0] * 2, 1)
+            A = np.zeros((sample.shape[0] * 2, 6))
+            b = np.zeros((sample.shape[0] * 2, 1))
             row_index = 0
-            for pair_index, pair in enumerate(sample):
+            for _, pair in enumerate(sample):
                 A[row_index, 0:2] = pair[1], pair[0]
+                A[row_index, 4] = 1
                 A[row_index + 1, 2:4] = pair[1], pair[0]
+                A[row_index + 1, 5] = 1
+
                 b[row_index, 0] = pair[3]
-                b[row_index, 0] = pair[2]
-                row_index += 2 * (pair_index + 1)
+                b[row_index + 1, 0] = pair[2]
+
+                row_index += 2
+            A = A.astype("float64")
+            b = b.astype("float64")
             # TODO[Zain]: generalize this beyond OLS
-            sol = linalg.lstsq(A, b, rcond="none")
-            assert sol.shape == (6, 1)
+            sol = linalg.lstsq(A, b, rcond=None)[0]
+            assert sol.shape == (6, 1), f"Actual shape: {sol.shape}"
 
             # find the inliers
             transform_params = m = sol[:4, 0].reshape(2, 2)
-            transform_bias = b = sol[4:, 0]
+            transform_bias = b = sol[4:, 0].reshape(2, 1)
 
-            distances = list()
-            for point in cc:
-                point = point.reshape(2, 1)
-                reprojected_point = (m.dot(point.T) + b).reshape(2, 1)
-                dist = linalg.norm(point - reprojected_point)
-                # dist = _distance_from_a_point_to_a_line(m, b, point[1], point[0])
-                distances.append(dist)
-            inlier_indices = np.array(
-                [i for i, dist in enumerate(distances) if dist < inlier_threshold]
-            ).astype(int)
+            # distances = list()
+            original_points = cc[:, 0:2]
+            both_pairs = cc[:, 0:4]
+            if do_logging:
+                print(
+                    "Original: ",
+                    type(original_points),
+                    len(original_points),
+                    original_points,
+                )
+                print(
+                    "Both pairs: ",
+                    type(both_pairs),
+                    len(both_pairs),
+                    both_pairs,
+                )
+            reprojected_points = (m.dot(original_points.T) + b).T
+            if do_logging:
+                print(
+                    "Reprojected: ",
+                    type(reprojected_points),
+                    len(reprojected_points),
+                    reprojected_points,
+                )
+            distances = linalg.norm(original_points - reprojected_points, axis=1)
+            if do_logging:
+                print(
+                    "Distances: ",
+                    type(distances),
+                    distances.shape,
+                    distances,
+                )
+            # for point in cc:
+            #     point = point[:2].reshape(2, 1)
+            #     reprojected_point = (m.dot(point) + b).reshape(2, 1)
+            #     dist = linalg.norm(point - reprojected_point)
+            #     # dist = _distance_from_a_point_to_a_line(m, b, point[1], point[0])
+            #     distances.append(dist)
+            # TODO[use more vectorization to compute distances]
+            inlier_indices = np.where(distances < inlier_threshold)[0]
+            if do_logging:
+                print(type(inlier_indices), len(inlier_indices), inlier_indices)
+            # .astype(int)
             inliers = cc[inlier_indices]
 
             # ensure the same inliers not used twice, and return the info about this line
             mask = np.ones(cc.shape[0], bool)
             mask[inlier_indices] = 0
-            # TODO[optimize later]
-            modified_correspondence_coords = np.array(
-                [cc[i] for i, val in enumerate(mask) if val == 1]
-            )
+            outlier_indices = np.where(mask == 1)  # .astype(int)
+            modified_correspondence_coords = cc[outlier_indices]
 
             return (modified_correspondence_coords, (inliers, (m, b)), distances)
 
@@ -336,18 +358,24 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
                 cp, next_model, distances = _sample_line(cp, t, s)
                 add_to_results(next_model)
                 num_inliers = next_model[0].shape[0]
-                new_inlier_ratio = num_inliers / total_num_keypoints
-                if new_inlier_ratio > best_inlier_ratio:
-                    # recompute N from e
-                    best_inlier_ratio = new_inlier_ratio
-                    outlier_ratio = e = 1 - best_inlier_ratio
-                    num_iterations = math.log((1 - p), 10) / math.log(
-                        (1 - ((1 - e) ** s)), 10
-                    )
+                
+                # alert user if no inliers - this will probably fail
+                if num_inliers > 0:
+                    # raise RuntimeError("Sorry, RANSAC didn't find any inliers. Please increase distance threshold. Stopping for now...")
+
+                    new_inlier_ratio = num_inliers / total_num_keypoints
+                    if new_inlier_ratio > best_inlier_ratio:
+                        # recompute N from e
+                        best_inlier_ratio = new_inlier_ratio
+                        outlier_ratio = e = 1 - best_inlier_ratio
+                        num_iterations = math.log((1 - p), 10) / math.log(
+                            (1 - ((1 - e) ** s)), 10
+                        )
                 sample_count += 1
                 print(f"======= Iteration {sample_count} Report: ========")
-                print(f"Outlier Ratio: {outlier_ratio}")
                 print(f"No. of Inliers: {num_inliers}")
+                if num_inliers > 0:
+                    print(f"Outlier Ratio: {outlier_ratio}")
                 print(f"No. of Iterations (Expected): {num_iterations}.")
                 print(f"Avg reprojection error: {np.mean(distances)}.")
             N = num_iterations
