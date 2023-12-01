@@ -62,11 +62,14 @@ def compute_similarity(
 
 
 def load_image(
-    filename: str, rotation_angle: int = 0, return_array: bool = False
+    filename: str,
+    rotation_angle: int = 0,
+    return_grayscale: bool = True,
+    return_array: bool = False
 ) -> Union[List[List[int]], np.ndarray]:
     """
     Allows us to convert images from its binary form
-    to a 2D list representing the grayscale image.
+    to a 2D array-like representing the image.
 
     Parameters:
         filename(str): relative path to the image file
@@ -77,7 +80,10 @@ def load_image(
     """
     with Image.open(filename) as img:
         # Convert the image to grayscale, and do any rotations as needed
-        img = img.convert("L").rotate(rotation_angle, expand=1)
+        if return_grayscale:
+            img = img.convert("L")
+        
+        img = img.rotate(rotation_angle, expand=1)
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())  # currently, this is 1D
