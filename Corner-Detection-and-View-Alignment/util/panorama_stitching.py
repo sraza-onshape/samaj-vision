@@ -33,10 +33,17 @@ class PanoramaStitcher:
         ] = left_img_transformed
 
         # Blend the right image onto the panorama
-        stitched_image[: right_img.shape[0], left_img.shape[1] :] = right_img
+        # right_img_transformed = ndimage.affine_transform(
+        #     right_img,
+        #     affine_transform_matrix,
+        #     offset=np.squeeze(affine_transform_offset),
+        # )
+        stitched_image[
+            : right_img.shape[0], left_img.shape[1] :
+        ] = right_img
 
         # Display the result
-        plt.imshow(stitched_image)
+        plt.imshow(stitched_image, cmap="gray")
         plt.title(plot_title)
         plt.axis("off")  # for cleanliness, hide the axis lines and ticks
         plt.show()
