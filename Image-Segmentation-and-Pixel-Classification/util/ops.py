@@ -24,6 +24,13 @@ class SimilarityMeasure(Enum):
     NULL = "randomness"  #  when selected, this means we don't actually care about similarity
 
 
+def convert_1d_indices_to_2d(
+    matrix: np.ndarray, indices: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """TODO[Zain] add docstring"""
+    return (indices // matrix.shape[1], indices % matrix.shape[1])
+
+
 def compute_similarity(
     mode: Literal[
         SimilarityMeasure.NCC,
@@ -65,7 +72,7 @@ def load_image(
     filename: str,
     rotation_angle: int = 0,
     return_grayscale: bool = True,
-    return_array: bool = False
+    return_array: bool = False,
 ) -> Union[List[List[int]], np.ndarray]:
     """
     Allows us to convert images from its binary form
@@ -82,17 +89,23 @@ def load_image(
         # Convert the image to grayscale, and do any rotations as needed
         if return_grayscale:
             img = img.convert("L")
-        
+
         img = img.rotate(rotation_angle, expand=1)
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())  # currently, this is 1D
         width, height = img.size
-        print(f"Dimensions of {filename}: {height} x {width}")
         image_data = [image_data[i * width : (i + 1) * width] for i in range(height)]
 
         if return_array is True:
             image_data = np.array(image_data)
+
+        if len(image_data.shape) == 2:
+            print(f"Dimensions of {filename}: {height} x {width}")
+        elif len(image_data.shape) == 3:
+            print(
+                f"Dimensions of {filename}: {height} x {width} x {image_data.shape[2]}"
+            )
 
     return image_data
 
