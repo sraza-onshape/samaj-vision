@@ -32,12 +32,23 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         )
         # do the same for y
         gaussian_derivative_y_filter = convolution_op(
-            self.filter_matrix, Filter2D.VERTICAL_SOBEL_FILTER.value, padding_type=padding_type
+            self.filter_matrix,
+            Filter2D.VERTICAL_SOBEL_FILTER.value,
+            padding_type=padding_type,
         )
         partial_derivative_y = convolution_op(
             image, gaussian_derivative_y_filter, padding_type=padding_type
         )
         return partial_derivative_x, partial_derivative_y
+
+    def _compute_magnitude(self, partial_derivative_x, partial_derivative_y):
+        # convert to numpy array (only for the purpose of making element-wise computations easier)
+        partial_derivative_x = np.array(partial_derivative_x)
+        partial_derivative_y = np.array(partial_derivative_y)
+        magnitude = np.sqrt(
+            (partial_derivative_x**2) + (partial_derivative_y**2)
+        )
+        return magnitude
 
     def detect_edges(
         self,
@@ -46,22 +57,11 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         padding_type: str = "zero",
     ) -> np.array:
         """Do edge detection: use the convolved images in the magnitude formula --> visualize it"""
-
-        ### HELPERS
-        def _compute_magnitude(partial_derivative_x, partial_derivative_y):
-            # convert to numpy array (only for the purpose of making element-wise computations easier)
-            partial_derivative_x = np.array(partial_derivative_x)
-            partial_derivative_y = np.array(partial_derivative_y)
-            magnitude = np.sqrt(
-                (partial_derivative_x**2) + (partial_derivative_y**2)
-            )
-            return magnitude
-
         ### DRIVER
         partial_derivative_x, partial_derivative_y = self._compute_derivatives(
             image, padding_type=padding_type
         )
-        edges = _compute_magnitude(partial_derivative_x, partial_derivative_y)
+        edges = self._compute_magnitude(partial_derivative_x, partial_derivative_y)
         # apply the threshold to zero out extraneous magnitudes
         edges = np.where(edges > threshold, edges, 0)  # default: no change
 
