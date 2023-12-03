@@ -223,14 +223,19 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
     # this is the probability we want to achieve, that we achieve a model with no outliers.
     CONFIDENCE_LEVEL_FOR_NUM_ITERATIONS = 0.99
 
+    @staticmethod
+    def compute_expected_num_iter(p, e, s):
+        return math.log((1 - p), 10) / math.log((1 - ((1 - e) ** s)), 10)
+
     def fit(
         self,
         corresponding_points: np.array,
         required_number_of_inliers: int = 3,  # as per the lecture notes from week 5
         distance_threshold: float = 3.0,  # TODO[asl TA baout this threshold]
         num_top_models_to_return: int = 1,  # as per the requirements in hw 3
+        max_iter: int = None,
         do_logging: bool = False,
-        prevent_resampling = True,
+        prevent_resampling=True,
     ) -> Tuple[List[Tuple[np.array, float]], int]:
         """
         Executes the RANSAC algorithm to fit multiple models across a dataset.
@@ -253,6 +258,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
                     and a 1D vector representing the translation .
             2) the number of iterations for which we ran RANSAC
         """
+        reprojection_errors = list()  # capture all errors, globally
 
         ### HELPERS
         def _sample_line(
@@ -315,6 +321,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
                     reprojected_points,
                 )
             distances = linalg.norm(original_points - reprojected_points, axis=1)
+            reprojection_errors.extend(distances.tolist())  # we'll need this later...
             if do_logging:
                 print(
                     "Distances: ",
@@ -322,7 +329,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
                     distances.shape,
                     distances,
                 )
- 
+
             inlier_indices = np.where(distances < inlier_threshold)[0]
             if do_logging:
                 print(type(inlier_indices), len(inlier_indices), inlier_indices)
@@ -342,41 +349,48 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
         def _run_RANSAC_adaptively(
             add_to_results: Callable,
             s: int,
-            total_num_keypoints: int,
+            total_num_points: int,
             t: float,
             p: float,
-        ) -> int:
-            N = num_iterations = float("inf")
+        ) -> Tuple[int, float]:
+            """TODO[Zain]: add docstring"""
+            N = num_iterations_upper_bound = float("inf")
+            if max_iter is not None:
+                num_iterations_upper_bound = max_iter
             best_inlier_ratio = float("-inf")
             sample_count = 0
             cp = corresponding_points
+            outlier_ratios = list()
+            outlier_ratio = e = 1.0
 
-            while num_iterations > sample_count and cp.shape[0] > s:
+            while sample_count < num_iterations_upper_bound and cp.shape[0] > s:
                 cp, next_model, distances = _sample_line(cp, t, s)
                 add_to_results(next_model)
                 num_inliers = next_model[0].shape[0]
-                
+
                 # alert user if no inliers - this will probably fail
                 if num_inliers > 0:
-                    # raise RuntimeError("Sorry, RANSAC didn't find any inliers. Please increase distance threshold. Stopping for now...")
-
-                    new_inlier_ratio = num_inliers / total_num_keypoints
+                    new_inlier_ratio = num_inliers / total_num_points
                     if new_inlier_ratio > best_inlier_ratio:
                         # recompute N from e
                         best_inlier_ratio = new_inlier_ratio
-                        outlier_ratio = e = 1 - best_inlier_ratio
-                        num_iterations = math.log((1 - p), 10) / math.log(
-                            (1 - ((1 - e) ** s)), 10
-                        )
+                        e = 1 - best_inlier_ratio
+                        outlier_ratios.append(e)
                 sample_count += 1
                 print(f"======= Iteration {sample_count} Report: ========")
                 print(f"No. of Inliers: {num_inliers}")
-                if num_inliers > 0:
-                    print(f"Outlier Ratio: {outlier_ratio}")
-                print(f"No. of Iterations (Expected): {num_iterations}.")
-                print(f"Avg reprojection error: {np.mean(distances)}.")
-            N = num_iterations
-            return N
+                print(f"Outlier Ratio (e): {e}")
+                print(f"No. of Iterations (Expected): {num_iterations_upper_bound}.")
+                print(f"Avg reprojection error (1 iteration): {np.mean(distances)}.")
+                print(f"================================================")
+                if e > 0.0:  # defensive coding
+                    num_iterations_upper_bound = self.compute_expected_num_iter(p, e, s)
+                else:
+                    print(f"No outliers... we have coverged! Stopping...")
+                    break
+            N = num_iterations_upper_bound
+            avg_e = np.array(outlier_ratios).mean()
+            return N, avg_e
 
         def _choose_top_k_results(
             all_results: List[Tuple[np.array, float]], k: int
@@ -397,11 +411,15 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
         results = list()
 
         # populate the full list of RANSAC results
-        N = _run_RANSAC_adaptively(results.append, s, total_num_points, t, p)
+        N, avg_e = _run_RANSAC_adaptively(results.append, s, total_num_points, t, p)
+
+        print("================= Global Results ===============")
+        print(f"Average Outlier Ratio (e): {avg_e}")
+        print(f"Average reprojection error: {np.array(reprojection_errors).mean()}.")
 
         # return the top results
         top_k_results_heap = _choose_top_k_results(results, num_top_models_to_return)
-        return top_k_results_heap, N
+        return top_k_results_heap, N, avg_e
 
     @classmethod
     def fit_and_report(
@@ -443,7 +461,7 @@ class RANSACAffineTransformFitter(AbstractLineFitter):
             transform_params, transform_bias = transform
             x_min, x_max = inliers[:, 1].min(), inliers[:, 1].max()
             x_range = np.linspace(x_min, x_max)
-            y_range = x_range * slope + y_intercept
+            y_range = x_range @ transform_params + transform_bias
             plt.plot(x_range, y_range, color="green", marker="*")
             # Also plot the inliers as 3×3 squares.
             row_wise_coords = inliers.T
