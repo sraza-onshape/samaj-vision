@@ -1,5 +1,5 @@
 import functools
-from typing import Dict
+from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -94,6 +94,7 @@ class KMeans:
         num_clusters: int = 10,  # as per Hw 4 description
         plot_title: str = "",
         max_iter: int = float("inf"),
+        figsize: Tuple[int, int] = (12, 12),
     ) -> None:
         """TODO[Zain]: add docstring"""
         # find the clusters in the dataset
@@ -101,7 +102,7 @@ class KMeans:
         kmeans.fit(points, max_iter)
 
         # visualize the points - TODO, in the future we can generalize this to work for 2D also
-        fig = plt.figure()
+        fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot(projection="3d")
 
         xs = points[:, 0]
