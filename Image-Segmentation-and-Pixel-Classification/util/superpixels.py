@@ -1,8 +1,10 @@
 from collections import defaultdict
-from typing import Dict
+import random
+from typing import Dict, List, Tuple
 
 import cv2
 import functools
+import matplotlib.pyplot as plt
 import numpy as np
 
 from .gaussian_derivative import GaussianDerivativeFilter
@@ -16,19 +18,28 @@ class SLIC:
         step_size: int = 50,
         max_iter: int = 3,
         xy_scaling_factor: int = 2,
+        plot_title: str = "",
     ) -> None:
         """TODO[Zain]: Add docstrings"""
 
         ### HELPERS
+        def _common_elements(*lists: Tuple[List]) -> List:
+            """given n lists, find the common elements found throughout all"""
+            # Convert each list to a set and find the intersection using reduce
+            common_elements_set = functools.reduce(
+                set.intersection, map(set, lists), set()
+            )
+            # Return the common elements as a list
+            return list(common_elements_set)
+
         def _scale_5d_coordinate(coords: np.ndarray) -> np.ndarray:
             coords = coords.reshape(-1, 5)
             return np.concatenate([coords[:, :2] / xy_scaling_factor, coords[:, 2:]])
 
         def _dist_to_coordinate(coords: np.ndarray) -> np.ndarray:
             coords = _scale_5d_coordinate(coords)
-            return (
-                np.linalg.norm(coords[:, :2], axis=1) + 
-                np.linalg.norm(coords[:, 2:], axis=1)
+            return np.linalg.norm(coords[:, :2], axis=1) + np.linalg.norm(
+                coords[:, 2:], axis=1
             )
 
         def _divide_image_along_dimension(img: np.ndarray, axis: int) -> np.ndarray:
@@ -167,8 +178,16 @@ class SLIC:
             axis=0,
             arr=centroid_coordinates,
         )
+        assert shifted_centroid_centers.shape[1] == 2, "Are we not in 2D space?"
         # TODO[Zain][generalize with KMeans] Centroid Update, via clustering
-        centroids = shifted_centroid_centers
+        centroids = np.concatenate(
+            [
+                shifted_centroid_centers,
+                np.zeros((shifted_centroid_centers.shape[0], 3)),
+            ],
+            axis=1,
+        )
+        assert centroids.shape[1] == 5, "Are we not in 5D space?"
         num_centroids = centroids.shape[0]
 
         pixel_num = 0
@@ -202,11 +221,14 @@ class SLIC:
             cap = centroids_assigned_pts  # just an abbreviation
             new_centroids = np.array(
                 [
-                    np.mean(np.array(cap[centroid_label]), axis=0).astype(int)
+                    np.mean(np.array(cap[centroid_label]), axis=0).astype(
+                        int
+                    )  # TODO[perhaps only round xy to int?]
                     for centroid_label in centroids_assigned_pts.keys()
                 ]
             )
             centroids = new_centroids[:]
+            assert centroids.shape[1] == 5, "Are we not in 5D space?"
 
             # 3: decide if we should continue
             iter_num += 1
@@ -217,12 +239,51 @@ class SLIC:
         pixel_to_cluster = defaultdict(list)
         for centroid_coords, pixel_coords in centroids_assigned_pts.items():
             for single_pixel in pixel_coords:
-                pixel_to_cluster[single_pixel].append(centroid_coords)
-        # TODO: plotting
-        """
-        For each pixel, check if the up/down or left/right 
-        neighbour pixel belongs to a different centroid, 
-        if yes, paint the pixel black as the boundary of 
-        the cluster. If not, assign the value as the centroid
-          colour.
-        """
+                pixel_2d = single_pixel[:2]
+                pixel_to_cluster[pixel_2d].append(centroid_coords)
+
+        # D: for plotting, start by assuming all pixels black (boundary of a cluster)
+        superpixel_img = np.zeros_like(combined_grad_magnitude)
+
+        # assign a color to each centroid
+        centroid_colors = dict(
+            zip(
+                centroids.tolist(),
+                [
+                    (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
+                    for _ in centroids
+                ],
+            )
+        )
+
+        # give color to the pixels on the "interior" of some cluster
+        for y in np.arange(superpixel_img.shape[0]):
+            for x in np.arange(superpixel_img.shape[1]):
+                coords = np.array([x, y])
+                neighbors = (
+                    np.array([x + 1, y]),  # right
+                    np.array([x - 1, y]),  # left
+                    np.array([x, y + 1]),  # down
+                    np.array([x, y - 1]),  # up
+                )
+                cluster_list = pixel_to_cluster[coords]
+                right_neighbor_cluster = pixel_to_cluster[neighbors[0]]
+                left_neighbor_cluster = pixel_to_cluster[neighbors[1]]
+                down_neighbor_cluster = pixel_to_cluster[neighbors[2]]
+                up_neighbor_cluster = pixel_to_cluster[neighbors[3]]
+
+                clusters_in_common = _common_elements(
+                    cluster_list,
+                    right_neighbor_cluster,
+                    left_neighbor_cluster,
+                    down_neighbor_cluster,
+                    up_neighbor_cluster,
+                )
+
+                if len(clusters_in_common) > 0:
+                    centroid_color_to_assign = centroid_colors[clusters_in_common[0]]
+                    superpixel_img[y, x] = centroid_color_to_assign
+
+        plt.imshow(superpixel_img)
+        plt.title(plot_title)
+        plt.show()
