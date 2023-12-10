@@ -20,6 +20,7 @@ class SLIC:
         max_iter: int = 3,
         xy_scaling_factor: int = 2,
         plot_title: str = "",
+        logging: bool = True,
     ) -> None:
         """TODO[Zain]: Add docstrings"""
 
@@ -76,7 +77,7 @@ class SLIC:
             )
 
             centroid_assignment = -1
-            if centroids_in_range_along_xy_mask.sum() == 0:
+            if centroids_in_range_along_xy_mask.sum() == 0 and logging:
                 print(
                     f"Warning: please double check indexing there is at least 1 centroid in the threshold. Sticking with -1..."
                 )
@@ -124,7 +125,7 @@ class SLIC:
                 ]
 
                 window[: sub_image.shape[0], : sub_image.shape[1]] = sub_image
-            else:
+            elif logging:
                 # special case: I guess our image has only a single pixel in one of its dims?
                 print(
                     f"I've encountered a weird image... please check its dimensions: {img.shape}"
@@ -321,7 +322,7 @@ class SLIC:
                                 cluster_list.append(
                                     pixel_to_cluster[(x_coord, y_coord)]
                                 )
-                            else:
+                            elif logging:
                                 print(
                                     f"Warning: couldn't find cluster for coords ({(x_coord, y_coord)}), which is suspicious..."
                                 )
