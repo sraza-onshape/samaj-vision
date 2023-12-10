@@ -65,7 +65,6 @@ class SLIC:
             centroids: np.ndarray,
             threshold_distance: float,
         ):
-            # print(f"ZAIN!! shape of pixel? {pixel_5d.shape}")
             centroids_in_range_along_y_mask = (
                 np.absolute(pixel_5d[0] - centroids[:, 0]) < threshold_distance
             )
@@ -75,30 +74,11 @@ class SLIC:
             centroids_in_range_along_xy_mask = np.logical_and(
                 centroids_in_range_along_x_mask, centroids_in_range_along_y_mask
             )
-            # in_range_centroids = np.where(
-            #     np.logical_and(
-            #         pixel_5d[0] - threshold_distance
-            #         # TODO: revise how we filter for the in range centroids
-            #         < centroids[:, 0] < pixel_5d[0] + threshold_distance,
-            #         pixel_5d[1] - threshold_distance
-            #         < centroids[:, 1]
-            #         < pixel_5d[1] + threshold_distance,
-            #     )
-            # )
-            # print(f"ZAIN!!! Right now I am trying to get stable centroids...")
-            # print(
-            #     f"ZAIN!!! centroids_in_range_along_xy_mask: {centroids_in_range_along_xy_mask}"
-            # )
-            # stable_choices_of_centroids = distances_to_centroids[
-            #     centroids_in_range_along_xy_mask
-            # ]
-            # print(f"ZAIN!!! stable_choices_of_centroids: {stable_choices_of_centroids}")
-            # stable_choices_of_centroids = distances_to_centroids[in_range_centroids]
-            print("ZAIN!!! Checkpoint: how well do we assign centroids?")
+
             centroid_assignment = -1
             if centroids_in_range_along_xy_mask.sum() == 0:
                 print(
-                    f"Zain, please double check indexing there is at least 1 centroid in the threshold. Sticking with -1..."
+                    f"Warning: please double check indexing there is at least 1 centroid in the threshold. Sticking with -1..."
                 )
             else:  # centroids_in_range_along_xy_mask.sum() > 0
                 scaled_pixel = _scale_5d_coordinate(pixel_5d).reshape(1, 5)
@@ -118,9 +98,6 @@ class SLIC:
                         centroid_assignment = centroid_index
                         break
 
-            # assert (
-            #     -1 < centroid_assignment < centroids.shape[0]
-            # ), f"Failed to find a valid centroid: {centroid_assignment}"
             centroids_assigned_pts[centroid_assignment].append(pixel_5d)
 
         def _find_smallest_grad_position(
@@ -136,9 +113,7 @@ class SLIC:
             window[:, :] = np.inf
             # try to fill as much of the window as possible, with true values
             current_y, current_x = current_coordinates.astype(int)
-            # print(
-            #     f"ZAIN!!! Observe: are these coords correct? [{current_y, current_x}]"
-            # )
+
             if (
                 combined_grad_magnitude.shape[0] - current_y >= 1
                 and combined_grad_magnitude.shape[1] - current_x >= 1
@@ -147,7 +122,7 @@ class SLIC:
                     current_y - 1 : current_y + 2,
                     current_x - 1 : current_x + 2,
                 ]
-                # print(f"ZAIN!!! Observe: size of sub_image? [{sub_image.shape}]")
+
                 window[: sub_image.shape[0], : sub_image.shape[1]] = sub_image
             else:
                 # special case: I guess our image has only a single pixel in one of its dims?
@@ -161,18 +136,13 @@ class SLIC:
             smallest_magnitude_coords_in_window_space_2d = ops.convert_1d_indices_to_2d(
                 window, np.array([smallest_magnitude_coords_in_window_space_1d])
             )
-            # print(
-            #     f"ZAIN!!! observe smallest_magnitude_coords_in_window_space_2d: {len(smallest_magnitude_coords_in_window_space_2d), smallest_magnitude_coords_in_window_space_2d[0].shape, smallest_magnitude_coords_in_window_space_2d[1].shape}"
-            # )
+
             smallest_magnitude_coords_delta = np.array(
                 [
                     -1 * (1 - smallest_magnitude_coords_in_window_space_2d[0]),
                     -1 * (1 - smallest_magnitude_coords_in_window_space_2d[1]),
                 ]
             ).squeeze()
-            # print(
-            #     f"ZAIN!!! observe smallest_magnitude_coords_delta: {smallest_magnitude_coords_delta.shape}"
-            # )
             # return the coords of the smallest grad magnitude in "channel space"
             smallest_magnitude_coords_in_channel_space_2d = (
                 current_coordinates + smallest_magnitude_coords_delta
@@ -194,7 +164,6 @@ class SLIC:
         # Divide the image in blocks
         pixel_block_boundaries_x = _divide_image_along_dimension(img, 1)
         pixel_block_boundaries_y = _divide_image_along_dimension(img, 0)
-        print("ZAIN!!! Checkpoint: did you divide up the image?")
         # initialize a centroid at the center of each block.
         centroid_coordinates = np.zeros(
             (pixel_block_boundaries_x.shape[0] * pixel_block_boundaries_y.shape[0], 2)
@@ -251,26 +220,21 @@ class SLIC:
             combined_grad_magnitude=combined_grad_magnitude,
         )
 
-        # print(f"ZAIN!! shape before local shift? {centroid_coordinates.shape}")
-
         shifted_centroid_centers = np.apply_along_axis(
             _find_smallest_grad_position_short,
             axis=1,
             arr=centroid_coordinates,
         )
-        print("ZAIN!!! Checkpoint: do you have a list of 5d shifted centroid centers?")
         assert (
             len(shifted_centroid_centers.shape) == 2
             and shifted_centroid_centers.shape[1] == 5
         ), f"After local shift, are we not in 5D space? ({shifted_centroid_centers.shape[1]})"
 
-        # print(f"ZAIN!! shape after local shift? {shifted_centroid_centers.shape}")
         # TODO[Zain][generalize with KMeans] Centroid Update, via clustering
         centroids = shifted_centroid_centers
         assert (
             centroids.shape[1] == 5
         ), f"Before clustering, are we not in 5D space? ({centroids.shape[1]})"
-        num_centroids = centroids.shape[0]
 
         pixel_num = 0
         pixel_5d_coords = np.zeros((img.shape[0] * img.shape[1], 5))
@@ -278,7 +242,6 @@ class SLIC:
             for x in np.arange(img.shape[1]):
                 pixel_5d_coords[pixel_num] = np.concatenate(([x, y], img[y, x, :]))
                 pixel_num += 1
-        print("ZAIN!!! Checkpoint: do you have all the pixels in 5D?")
         has_converged = False
         iter_num = 0
         while has_converged is False and iter_num < max_iter:
@@ -293,7 +256,6 @@ class SLIC:
             np.apply_along_axis(_assign_centroid_1d, axis=1, arr=pixel_5d_coords)
 
             # 2: update centroid placements themselves
-            print(f"ZAIN!!! Checkpoint: see distribution of points across centroids")
             cap = centroids_assigned_pts  # just an abbreviation
             new_centroids = np.array(
                 [
