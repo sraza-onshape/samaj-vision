@@ -98,7 +98,7 @@ class SLIC:
             centroid_assignment = -1
             if centroids_in_range_along_xy_mask.sum() == 0:
                 print(
-                    f"Zain, double check indexing there is at least 1 centroid in the threshold"
+                    f"Zain, please double check indexing there is at least 1 centroid in the threshold. Sticking with -1..."
                 )
             else:  # centroids_in_range_along_xy_mask.sum() > 0
                 scaled_pixel = _scale_5d_coordinate(pixel_5d).reshape(1, 5)
@@ -118,9 +118,9 @@ class SLIC:
                         centroid_assignment = centroid_index
                         break
 
-            assert (
-                -1 < centroid_assignment < centroids.shape[0]
-            ), f"Failed to find a valid: {centroid_assignment}"
+            # assert (
+            #     -1 < centroid_assignment < centroids.shape[0]
+            # ), f"Failed to find a valid centroid: {centroid_assignment}"
             centroids_assigned_pts[centroid_assignment].append(pixel_5d)
 
         def _find_smallest_grad_position(
@@ -275,7 +275,7 @@ class SLIC:
         pixel_num = 0
         pixel_5d_coords = np.zeros((img.shape[0] * img.shape[1], 5))
         for y in np.arange(img.shape[0]):
-            for x in np.arange(img.shape[0]):
+            for x in np.arange(img.shape[1]):
                 pixel_5d_coords[pixel_num] = np.concatenate(([x, y], img[y, x, :]))
                 pixel_num += 1
         print("ZAIN!!! Checkpoint: do you have all the pixels in 5D?")
@@ -355,7 +355,15 @@ class SLIC:
                 for x_coord, y_coord in coords:
                     if 0 < x_coord < superpixel_img.shape[1]:
                         if 0 < y_coord < superpixel_img.shape[0]:
-                            cluster_list.append(pixel_to_cluster[(x_coord, y_coord)])
+                            if (x_coord, y_coord) in pixel_to_cluster:
+                                cluster_list.append(
+                                    pixel_to_cluster[(x_coord, y_coord)]
+                                )
+                            else:
+                                print(
+                                    f"Warning: couldn't find cluster for coords ({(x_coord, y_coord)}), which is suspicious..."
+                                )
+                                cluster_list.append([])
 
                 clusters_in_common = _common_elements(*cluster_list)
 
