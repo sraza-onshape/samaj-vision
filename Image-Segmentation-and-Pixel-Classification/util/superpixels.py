@@ -295,9 +295,9 @@ class SLIC:
         rgb_colors_for_centroids = [
             tuple(
                 (
-                    random.uniform(0, 1),
-                    random.uniform(0, 1),
-                    random.uniform(0, 1),
+                    random.uniform(0, 1) * 255.,
+                    random.uniform(0, 1) * 255.,
+                    random.uniform(0, 1) * 255.,
                 )
             )
             for _ in centroids
