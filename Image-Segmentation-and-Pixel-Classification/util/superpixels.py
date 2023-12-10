@@ -39,10 +39,15 @@ class SLIC:
                 [coords[:, :2] / xy_scaling_factor, coords[:, 2:]], axis=1
             )
 
-        def _dist_to_coordinate(coords: np.ndarray) -> np.ndarray:
-            coords = _scale_5d_coordinate(coords)
-            return np.linalg.norm(coords[:, :2], axis=1) + np.linalg.norm(
-                coords[:, 2:], axis=1
+        def _dist_between_coordinates(
+            coords_a: np.ndarray, coords_b: np.ndarray
+        ) -> np.ndarray:
+            """Compute Euclidean distance between 2, broadcastable 2D NumPy arrays."""
+            return np.sqrt(
+                np.sum(
+                    np.diff(coords_a - coords_b, axis=1) ** 2,
+                    axis=1,
+                )
             )
 
         def _divide_image_along_dimension(img: np.ndarray, axis: int) -> np.ndarray:
@@ -92,22 +97,24 @@ class SLIC:
             print("ZAIN!!! Checkpoint: how well do we assign centroids?")
             centroid_assignment = -1
             if centroids_in_range_along_xy_mask.sum() == 0:
-                print(f"Zain, double check indexing there is at least 1 centroid in the threshold")
+                print(
+                    f"Zain, double check indexing there is at least 1 centroid in the threshold"
+                )
             else:  # centroids_in_range_along_xy_mask.sum() > 0
                 scaled_pixel = _scale_5d_coordinate(pixel_5d).reshape(1, 5)
                 scaled_centroids = _scale_5d_coordinate(centroids).reshape(-1, 5)
-                
-                xy_dist = np.sqrt((
-                    np.diff(scaled_centroids[:, :2] - scaled_pixel[0, :2], axis=1)
-                ) ** 2)
-                rgb_dist = np.sqrt((
-                    np.diff(scaled_centroids[:, 2:] - scaled_pixel[0, 2:], axis=1)
-                ) ** 2)
+
+                xy_dist = _dist_between_coordinates(
+                    scaled_centroids[:, :2], scaled_pixel[:, :2]
+                )
+                rgb_dist = _dist_between_coordinates(
+                    scaled_centroids[:, 2:], scaled_pixel[:, 2:]
+                )
                 distances = rgb_dist + (xy_scaling_factor * xy_dist)
 
                 closest_centroids = np.argsort(distances).astype(int).squeeze()
                 for centroid_index in closest_centroids:
-                    if centroids_in_range_along_xy_mask[centroid_index] is True:
+                    if centroids_in_range_along_xy_mask[centroid_index] == True:
                         centroid_assignment = centroid_index
                         break
 
@@ -169,7 +176,7 @@ class SLIC:
             # return the coords of the smallest grad magnitude in "channel space"
             smallest_magnitude_coords_in_channel_space_2d = (
                 current_coordinates + smallest_magnitude_coords_delta
-            )
+            ).astype(int)
             rgb = (
                 img[
                     smallest_magnitude_coords_in_channel_space_2d[0],
@@ -254,7 +261,7 @@ class SLIC:
         print("ZAIN!!! Checkpoint: do you have a list of 5d shifted centroid centers?")
         assert (
             len(shifted_centroid_centers.shape) == 2
-            shifted_centroid_centers.shape[1] == 5
+            and shifted_centroid_centers.shape[1] == 5
         ), f"After local shift, are we not in 5D space? ({shifted_centroid_centers.shape[1]})"
 
         # print(f"ZAIN!! shape after local shift? {shifted_centroid_centers.shape}")
@@ -308,49 +315,49 @@ class SLIC:
                 has_converged = True
 
         # C: collect the results - get a mapping of pixels to clusters
-        pixel_to_cluster = defaultdict(list)
+        pixel_to_cluster = dict()
         for centroid_coords, pixel_coords in centroids_assigned_pts.items():
             for single_pixel in pixel_coords:
-                pixel_2d = single_pixel[:2]
-                pixel_to_cluster[pixel_2d].append(centroid_coords)
+                pixel_2d = tuple(single_pixel[:2].astype(int).tolist())
+                if pixel_2d in pixel_to_cluster:
+                    pixel_to_cluster[pixel_2d].append(centroid_coords)
+                else:
+                    pixel_to_cluster[pixel_2d] = [centroid_coords]
 
         # D: for plotting, start by assuming all pixels black (boundary of a cluster)
         superpixel_img = np.zeros_like(img)
 
         # assign a color to each centroid
-        centroid_colors = dict(
-            zip(
-                centroids.tolist(),
-                [
-                    (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
-                    for _ in centroids
-                ],
+        hashable_centroids = [tuple(centroid) for centroid in centroids.tolist()]
+        rgb_colors_for_centroids = [
+            tuple(
+                (
+                    random.uniform(0, 1),
+                    random.uniform(0, 1),
+                    random.uniform(0, 1),
+                )
             )
-        )
+            for _ in centroids
+        ]
+        centroid_colors = dict(zip(hashable_centroids, rgb_colors_for_centroids))
 
         # give color to the pixels on the "interior" of some cluster
         for y in np.arange(superpixel_img.shape[0]):
             for x in np.arange(superpixel_img.shape[1]):
-                coords = np.array([x, y])
-                neighbors = (
-                    np.array([x + 1, y]),  # right
-                    np.array([x - 1, y]),  # left
-                    np.array([x, y + 1]),  # down
-                    np.array([x, y - 1]),  # up
+                coords = (
+                    (x, y),
+                    (x + 1, y),  # right
+                    (x - 1, y),  # left
+                    (x, y + 1),  # down
+                    (x, y - 1),  # up
                 )
-                cluster_list = pixel_to_cluster[coords]
-                right_neighbor_cluster = pixel_to_cluster[neighbors[0]]
-                left_neighbor_cluster = pixel_to_cluster[neighbors[1]]
-                down_neighbor_cluster = pixel_to_cluster[neighbors[2]]
-                up_neighbor_cluster = pixel_to_cluster[neighbors[3]]
+                cluster_list = []
+                for x_coord, y_coord in coords:
+                    if 0 < x_coord < superpixel_img.shape[1]:
+                        if 0 < y_coord < superpixel_img.shape[0]:
+                            cluster_list.append(pixel_to_cluster[(x_coord, y_coord)])
 
-                clusters_in_common = _common_elements(
-                    cluster_list,
-                    right_neighbor_cluster,
-                    left_neighbor_cluster,
-                    down_neighbor_cluster,
-                    up_neighbor_cluster,
-                )
+                clusters_in_common = _common_elements(*cluster_list)
 
                 if len(clusters_in_common) > 0:
                     centroid_color_to_assign = centroid_colors[clusters_in_common[0]]
