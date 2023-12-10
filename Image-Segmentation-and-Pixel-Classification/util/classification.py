@@ -8,11 +8,11 @@ from .clustering import KMeans
 
 class PixelClassifier:
 
-    WHITE_PIXEL =  np.array([1., 1., 1.,])
+    WHITE_PIXEL =  np.array([255., 255, 255.,])
 
-    def _reshape_into_5d(img: np.ndarray) -> np.ndarray:
+    def _reshape_into_5d(self, img: np.ndarray) -> np.ndarray:
         
-        pixels = np.zeros(img.shape[1] * img.shape[0], 5)
+        pixels = np.zeros((img.shape[1] * img.shape[0], 5))
         pixel_index = 0
         for x in np.arange(img.shape[1]):
             for y in np.arange(img.shape[0]):
@@ -39,7 +39,7 @@ class PixelClassifier:
             original_5d = original_in_5d[pixel_index, :]
             mask_5d = mask_in_5d[pixel_index, :]
 
-            if mask_5d[2:] == self.WHITE_PIXEL:
+            if np.equal(mask_5d[2:], self.WHITE_PIXEL).all():
                 self.positive_examples.append(original_5d)
             else:  # the pixel belongs to the negative set
                 self.negative_examples.append(original_5d)
@@ -49,14 +49,14 @@ class PixelClassifier:
 
     def train(
             self,
-            num_clusters: int = 10,
+            num_clusters_per_class: int = 10,
             max_iter: int = float("inf")
         ) -> None:
         # cluster separately for both classes
-        kmeans_positive = KMeans(k=num_clusters, max_iter=max_iter)
-        kmeans_positive.fit(self.positive_examples)
-        kmeans_negative = KMeans(k=num_clusters, max_iter=max_iter)
-        kmeans_negative.fit(self.negative_examples)
+        kmeans_positive = KMeans(k=num_clusters_per_class)
+        kmeans_positive.fit(self.positive_examples, max_iter=max_iter)
+        kmeans_negative = KMeans(k=num_clusters_per_class)
+        kmeans_negative.fit(self.negative_examples, max_iter=max_iter)
 
         # concat the clusters - first 10 are sky, 2nd are non-sky
         self.clusters = np.concatenate([
@@ -99,17 +99,17 @@ class PixelClassifier:
         # visualize the results
         segmented_img = np.zeros_like(test_img)
         for pixel_5d in positive_labels:
-            pixel_5d = pixel_5d.reshape(1, 5)
+            pixel_5d = pixel_5d.reshape(1, 5).astype(int)
             x, y = pixel_5d[0, :2]
-            segmented_img[y, x] = positive_color[1]
+            segmented_img[y, x, :] = positive_color[1]
         for pixel_5d in negative_labels:
-            pixel_5d = pixel_5d.reshape(1, 5)
+            pixel_5d = pixel_5d.reshape(1, 5).astype(int)
             x, y = pixel_5d[0, :2]
-            segmented_img[y, x] = pixel_5d[0, 2:]
+            segmented_img[y, x, :] = pixel_5d[0, 2:]
 
         plt.imshow(segmented_img)
         plt.title(f"Segmentation for \"{test_img_title}\" ({positive_class_name} shown in {positive_color[0]})")
-        plt.axis(option=False)
+        plt.axis("off")
         plt.show()
 
     @classmethod
@@ -120,14 +120,14 @@ class PixelClassifier:
         test_imgs: List[np.ndarray],
         test_img_title: List[str],
         positive_class_name: str,
-        num_clusters: int = 10,
+        num_clusters_per_class: int = 10,
         max_iter: int = float("inf"),
         positive_color: Tuple[str, np.ndarray] = ("yellow", np.array([255, 255, 0])),
     ) -> None:
         """TODO[Zain]"""
         # formulate a classifier
         clf = cls(original_img, mask_img)
-        clf.train(num_clusters, max_iter)
+        clf.train(num_clusters_per_class, max_iter)
 
         # do plotting
         ...
