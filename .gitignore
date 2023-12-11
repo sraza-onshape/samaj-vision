@@ -8,6 +8,7 @@ __pycache__/
 
 # Assets 
 *.png
+!/Circle-Center-Detection/*.png
 
 # OS and editor
 .vscode
