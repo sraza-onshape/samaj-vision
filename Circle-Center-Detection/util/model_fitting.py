@@ -477,6 +477,48 @@ class HoughTransformFitter(AbstractLineFitter):
 
     REQUIRED_NUM_MODELS_FOR_ASSIGNMENT = 4
 
+    @staticmethod
+    def non_max_suppression(matrix):
+        """prevent potential loss of keypoints via padding"""
+        keypoints = matrix
+        padded_matrix, num_added_rows, num_added_cols = padding_op(
+            keypoints.tolist(),
+            img_filter=Filter2D.IDENTITY_FILTER.value,
+            stride=1,
+            padding_type="zero",
+        )
+        # traverse the matrix, to begin non-max suppression
+        for center_val_row in range(
+            num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)
+        ):
+            for center_val_col in range(
+                num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)
+            ):
+                # determine if the given value should be suppressed, or its neighbors
+                center_val = padded_matrix[center_val_row][center_val_col]
+                neighbors = padded_matrix[
+                    center_val_row - 1 : center_val_row + 2,
+                    center_val_col - 1 : center_val_col + 2,
+                ]
+                neighbors[1][
+                    1
+                ] = 0  # hack to prevent the center value from "self-suppressing" (I have no idea, I made that term up)
+                # zero out the appropiate value(s)
+                if center_val > neighbors.max():  # suppression of neighbors
+                    padded_matrix[
+                        center_val_row - 1 : center_val_row + 2,
+                        center_val_col - 1 : center_val_col + 2,
+                    ] = 0
+                    padded_matrix[center_val_row][center_val_col] = center_val
+                else:  # suppression of the center
+                    padded_matrix[center_val_row][center_val_col] = 0
+
+        # return the modified matrix - TODO[optimize later]
+        return padded_matrix[
+            num_added_rows // 2 : padded_matrix.shape[0] - (num_added_rows // 2),
+            num_added_cols // 2 : padded_matrix.shape[1] - (num_added_cols // 2),
+        ]
+
     def fit(
         self,
         image: np.array,
@@ -498,49 +540,6 @@ class HoughTransformFitter(AbstractLineFitter):
             1) a list of four 2-tuples - each represents a cell in the accumulator with the top-4 most votes.
             2) np.array: the accumulator, i.e., the histogram of votes in Hough space (using polar coordinates).
         """
-
-        ### HELPERS
-        def _non_max_suppression(matrix):
-            """prevent potential loss of keypoints via padding"""
-            keypoints = matrix
-            padded_matrix, num_added_rows, num_added_cols = padding_op(
-                keypoints.tolist(),
-                img_filter=Filter2D.IDENTITY_FILTER.value,
-                stride=1,
-                padding_type="zero",
-            )
-            # traverse the matrix, to begin non-max suppression
-            for center_val_row in range(
-                num_added_rows // 2, padded_matrix.shape[0] - (num_added_rows // 2)
-            ):
-                for center_val_col in range(
-                    num_added_cols // 2, padded_matrix.shape[1] - (num_added_cols // 2)
-                ):
-                    # determine if the given value should be suppressed, or its neighbors
-                    center_val = padded_matrix[center_val_row][center_val_col]
-                    neighbors = padded_matrix[
-                        center_val_row - 1 : center_val_row + 2,
-                        center_val_col - 1 : center_val_col + 2,
-                    ]
-                    neighbors[1][
-                        1
-                    ] = 0  # hack to prevent the center value from "self-suppressing" (I have no idea, I made that term up)
-                    # zero out the appropiate value(s)
-                    if center_val > neighbors.max():  # suppression of neighbors
-                        padded_matrix[
-                            center_val_row - 1 : center_val_row + 2,
-                            center_val_col - 1 : center_val_col + 2,
-                        ] = 0
-                        padded_matrix[center_val_row][center_val_col] = center_val
-                    else:  # suppression of the center
-                        padded_matrix[center_val_row][center_val_col] = 0
-
-            # return the modified matrix - TODO[optimize later]
-            return padded_matrix[
-                num_added_rows // 2 : padded_matrix.shape[0] - (num_added_rows // 2),
-                num_added_cols // 2 : padded_matrix.shape[1] - (num_added_cols // 2),
-            ]
-
         ### DRIVER
         keypoint_coords = keypoints.T
         # Define the parameter space for the Hough transform
@@ -564,7 +563,7 @@ class HoughTransformFitter(AbstractLineFitter):
                 accumulator[rho_bin, theta_bin] += 1
 
         # use non max suppression to get lines with more support
-        local_max_accumulator = _non_max_suppression(accumulator)
+        local_max_accumulator = self.non_max_suppression(accumulator)
 
         # Extract and convert a sampling of detected lines to Cartesian coordinates
         local_max_accumulator_flat = local_max_accumulator.reshape(1, -1)
