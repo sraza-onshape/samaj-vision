@@ -1,11 +1,12 @@
 import heapq
 import math
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import linalg
 
+from util import ops
 from util.ops import (
     Filter2D,
     pad as padding_op,
@@ -643,6 +644,114 @@ class HoughTransformFitter(AbstractLineFitter):
         ax2.set_title("Votes in Hough Space (Polar Coordinates)")
         ax2.set_xlabel("Theta (radians)")
         ax2.set_ylabel("Rho (pixels)")
+
+
+class HoughTransformCircleCenterDetector(HoughTransformFitter):
+    @classmethod
+    def hough_circle_transform(
+        cls: "HoughTransformCircleCenterDetector",
+        pixel_img: np.ndarray,
+        edges_img: np.ndarray,
+        orientation_img: np.ndarray,
+        plot_title: str,
+        radius_interval: Tuple[int, int] = (5, 10),
+        mode: Union[str, str] = "use_circles",  # or, can be "use_lines"
+        logging_enabled: bool = False,
+    ) -> np.ndarray:
+        ### HELPER(S)
+        def _find_potential_circle_centers(
+            x: int, y: int, radius: float, gradient_angle: float, mode: str
+        ) -> np.array:
+            # Compute the points in the direction/opposite direction of the gradient (aka theta)
+            direction_vector = np.array([np.cos(gradient_angle), np.sin(gradient_angle)])
+            point1 = np.array([x, y]) + (
+                radius * direction_vector
+            )  # point in the direction of the grad
+            point2 = np.array([x, y]) - (radius * direction_vector)  # opposite direction
+            center_coords = np.concatenate(
+                [point1.reshape(1, 2), point2.reshape(1, 2)],
+                axis=0,
+            )
+
+            if mode == "use_lines":
+                # find the line containing pixel, in the direction orthogonal to the gradient
+                perpendicular_rotation = np.array(
+                    [
+                        [np.cos(angle + np.pi / 2), -np.sin(angle + np.pi / 2)],
+                        [np.sin(angle + np.pi / 2), np.cos(angle + np.pi / 2)],
+                    ]
+                )
+                orthogonal_coords = np.dot(perpendicular_rotation, center_coords)
+                center_coords = orthogonal_coords
+
+            return center_coords.astype(int)
+
+        ### DRIVER
+        # Define accumulator array
+        radii_range = radius_interval[1] - radius_interval[0]
+        accumulator = np.zeros(
+            (edges_img.shape[0], edges_img.shape[1], radii_range)
+        ).astype(int)
+
+        # Generate a range of radii to consider
+        radii = np.arange(start=radius_interval[0], stop=radius_interval[1])
+
+        # Loop over edge pixels
+        for y in np.arange(edges_img.shape[0]):
+            for x in np.arange(edges_img.shape[1]):
+                for r in radii:
+                    radius_adjusted = r - radius_interval[0]
+                    edge_pixel = edges_img[y][x]
+                    # check if it's an edge pixel
+                    if edge_pixel > 0:
+                        angle = orientation_img[y][x]
+                        # Vote for possible circle centers
+                        potential_center_points = _find_potential_circle_centers(
+                            x, y, r, angle, mode=mode
+                        )
+                        # now make a vote
+                        for column, row in potential_center_points:
+                            if (-1 < row < accumulator.shape[0]) and (
+                                -1 < column < accumulator.shape[1]
+                            ):
+                                accumulator[row, column, radius_adjusted] += 1
+                            elif logging_enabled:
+                                print(
+                                    f"Warning: coords ({row}, {column}, {radius_adjusted}) out of bounds for accumulator of shape: ({accumulator.shape})"
+                                )
+
+        # find the best radius to try and find the center at
+        highest_votes = np.max(accumulator, axis=(0, 1)).squeeze()
+        assert (
+            highest_votes.shape[0] == accumulator.shape[2]
+        ), f"Double check our max() op, it results in a shape mismatch: ({highest_votes.shape}) != ({accumulator.shape[2]})"
+        best_radius_index = np.argmax(highest_votes)
+        # find the proposed center at every radius length
+        accumulator_single_radius = accumulator[:, :, best_radius_index]
+        # apply non-maximum suppression
+        accumulator_max = cls.non_max_suppression(
+            accumulator_single_radius
+        )
+        accumulator_max = accumulator_single_radius
+        assert accumulator_max.shape == (
+            accumulator_single_radius.shape
+        ), f"Error: double check axis used for Hough transform. Shape mismatch: ({accumulator_max.shape}) != ({accumulator_single_radius.shape})"
+
+        # Find the most likely center
+        indices_1d = np.argmax(accumulator_max[:, :])
+        indices_2d = np.array(
+            ops.convert_1d_indices_to_2d(accumulator_single_radius, indices_1d)
+        ).reshape(1, 2)
+        assert indices_2d.shape == (
+            1,
+            2,
+        ), f"Error: double check shape of indices. Shape mismatch: ({indices_2d.shape }) != ({(1, 2)})"
+
+        # plot the point
+        plt.imshow(pixel_img, cmap="gray")
+        plt.scatter(x=indices_2d[0, 0], y=indices_2d[0, 1], color="r", s=20)
+        plt.title(plot_title)
+        plt.show()
 
 
 if __name__ == "__main__":
