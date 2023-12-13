@@ -16,7 +16,8 @@ class GaussianDerivativeFilter(BaseGaussianFilter):
         self.filter_matrix = self.create_gaussian_filter(self.sigma)
 
     def _compute_derivatives(
-        self, image: List[List[float]], padding_type: str = "zero"
+        self,
+        image: List[List[float]], padding_type: str = "zero"
     ) -> Tuple[List[List[float]]]:
         """Setter function for the partial derivatives of the iage"""
         # 2) "separate into x and y"
