@@ -1,3 +1,4 @@
+from enum import Enum
 import heapq
 import math
 from typing import Callable, List, Tuple, Union
@@ -646,14 +647,20 @@ class HoughTransformFitter(AbstractLineFitter):
         ax2.set_ylabel("Rho (pixels)")
 
 
+class HoughSpaceModel(Enum):
+    CIRCLE = "circle"
+    LINE = "line"
+
+
 class HoughTransformCircleCenterDetector(HoughTransformFitter):
     @classmethod
-    def fit_and_report_using_circles(
+    def fit_and_report(
         cls: "HoughTransformCircleCenterDetector",
         pixel_img: np.ndarray,
         edges_img: np.ndarray,
         orientation_img: np.ndarray,
         plot_title: str,
+        mode: HoughSpaceModel,
         radius_interval: Tuple[int, int] = (5, 10),
         logging_enabled: bool = False,
     ) -> np.ndarray:
@@ -664,10 +671,16 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
             radius: float,
             gradient_angle: float,
         ) -> np.array:
-            # Compute the points in the direction/opposite direction of the gradient (aka theta)
-            direction_vector = np.array(
-                [np.cos(gradient_angle), np.sin(gradient_angle)]
-            )
+            # Compute the points we think are in the direction of the gradient (aka theta)
+            direction_vector = np.zeros((1, 2))
+            if mode == HoughSpaceModel.CIRCLE:
+                direction_vector = np.array(
+                    [np.cos(gradient_angle), np.sin(gradient_angle)]
+                )
+            elif mode == HoughSpaceModel.LINE:
+                direction_vector = np.array(
+                    [np.sin(gradient_angle), np.cos(gradient_angle)]
+                )
             point1 = np.array([x, y]) + (
                 radius * direction_vector
             )  # point in the direction of the grad
@@ -678,17 +691,6 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
                 [point1.reshape(1, 2), point2.reshape(1, 2)],
                 axis=0,
             )
-
-            # if mode == "use_lines":
-            #     # find the line containing pixel, in the direction orthogonal to the gradient
-            #     perpendicular_rotation = np.array(
-            #         [
-            #             [np.cos(angle + np.pi / 2), -np.sin(angle + np.pi / 2)],
-            #             [np.sin(angle + np.pi / 2), np.cos(angle + np.pi / 2)],
-            #         ]
-            #     )
-            #     orthogonal_coords = np.dot(perpendicular_rotation, center_coords)
-            #     center_coords = orthogonal_coords
 
             return center_coords.astype(int)
 
