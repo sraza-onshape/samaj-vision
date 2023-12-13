@@ -648,19 +648,21 @@ class HoughTransformFitter(AbstractLineFitter):
 
 class HoughTransformCircleCenterDetector(HoughTransformFitter):
     @classmethod
-    def fit_and_report(
+    def fit_and_report_using_circles(
         cls: "HoughTransformCircleCenterDetector",
         pixel_img: np.ndarray,
         edges_img: np.ndarray,
         orientation_img: np.ndarray,
         plot_title: str,
         radius_interval: Tuple[int, int] = (5, 10),
-        mode: Union[str, str] = "use_circles",  # or, can be "use_lines"
         logging_enabled: bool = False,
     ) -> np.ndarray:
         ### HELPER(S)
         def _find_potential_circle_centers(
-            x: int, y: int, radius: float, gradient_angle: float, mode: str
+            x: int,
+            y: int,
+            radius: float,
+            gradient_angle: float,
         ) -> np.array:
             # Compute the points in the direction/opposite direction of the gradient (aka theta)
             direction_vector = np.array(
@@ -677,16 +679,16 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
                 axis=0,
             )
 
-            if mode == "use_lines":
-                # find the line containing pixel, in the direction orthogonal to the gradient
-                perpendicular_rotation = np.array(
-                    [
-                        [np.cos(angle + np.pi / 2), -np.sin(angle + np.pi / 2)],
-                        [np.sin(angle + np.pi / 2), np.cos(angle + np.pi / 2)],
-                    ]
-                )
-                orthogonal_coords = np.dot(perpendicular_rotation, center_coords)
-                center_coords = orthogonal_coords
+            # if mode == "use_lines":
+            #     # find the line containing pixel, in the direction orthogonal to the gradient
+            #     perpendicular_rotation = np.array(
+            #         [
+            #             [np.cos(angle + np.pi / 2), -np.sin(angle + np.pi / 2)],
+            #             [np.sin(angle + np.pi / 2), np.cos(angle + np.pi / 2)],
+            #         ]
+            #     )
+            #     orthogonal_coords = np.dot(perpendicular_rotation, center_coords)
+            #     center_coords = orthogonal_coords
 
             return center_coords.astype(int)
 
@@ -711,7 +713,7 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
                         angle = orientation_img[y][x]
                         # Vote for possible circle centers
                         potential_center_points = _find_potential_circle_centers(
-                            x, y, r, angle, mode=mode
+                            x, y, r, angle
                         )
                         # now make a vote
                         for column, row in potential_center_points:
@@ -751,8 +753,14 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
 
         # plot the point
         plt.imshow(pixel_img, cmap="gray")
-        plt.scatter(x=indices_2d[0, 0], y=indices_2d[0, 1], color="r", s=20)
+        plt.scatter(x=indices_2d[0, 0], y=indices_2d[0, 1], color="r", s=30)
         plt.title(plot_title)
+        plt.annotate(
+            "proposed center",
+            xy=indices_2d[0, :],
+            xytext=(indices_2d[0, 0] - 250, indices_2d[0, 1] - 290),
+            arrowprops=dict(facecolor="red", shrink=0.05),
+        )
         plt.show()
 
 
