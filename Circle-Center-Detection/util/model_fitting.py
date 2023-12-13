@@ -648,7 +648,7 @@ class HoughTransformFitter(AbstractLineFitter):
 
 class HoughTransformCircleCenterDetector(HoughTransformFitter):
     @classmethod
-    def hough_circle_transform(
+    def fit_and_report(
         cls: "HoughTransformCircleCenterDetector",
         pixel_img: np.ndarray,
         edges_img: np.ndarray,
@@ -663,11 +663,15 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
             x: int, y: int, radius: float, gradient_angle: float, mode: str
         ) -> np.array:
             # Compute the points in the direction/opposite direction of the gradient (aka theta)
-            direction_vector = np.array([np.cos(gradient_angle), np.sin(gradient_angle)])
+            direction_vector = np.array(
+                [np.cos(gradient_angle), np.sin(gradient_angle)]
+            )
             point1 = np.array([x, y]) + (
                 radius * direction_vector
             )  # point in the direction of the grad
-            point2 = np.array([x, y]) - (radius * direction_vector)  # opposite direction
+            point2 = np.array([x, y]) - (
+                radius * direction_vector
+            )  # opposite direction
             center_coords = np.concatenate(
                 [point1.reshape(1, 2), point2.reshape(1, 2)],
                 axis=0,
@@ -729,9 +733,7 @@ class HoughTransformCircleCenterDetector(HoughTransformFitter):
         # find the proposed center at every radius length
         accumulator_single_radius = accumulator[:, :, best_radius_index]
         # apply non-maximum suppression
-        accumulator_max = cls.non_max_suppression(
-            accumulator_single_radius
-        )
+        accumulator_max = cls.non_max_suppression(accumulator_single_radius)
         accumulator_max = accumulator_single_radius
         assert accumulator_max.shape == (
             accumulator_single_radius.shape
