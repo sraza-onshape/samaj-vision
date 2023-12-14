@@ -40,20 +40,22 @@ class HarrisCornerDetector(BaseCornerDetector):
         ) -> np.ndarray:
             # compute second order gradient
             (
-                second_order_derivator_x,
-                second_order_derivator_y,
-                second_order_derivator_xy,
+                first_order_derivator_x,
+                first_order_derivator_y,
+                mixed_order_derivator_xy,
             ) = (
-                ops.convolution(
-                    Filter2D.HORIZONTAL_SOBEL_FILTER.value,
-                    Filter2D.HORIZONTAL_SOBEL_FILTER.value,
-                    padding_type="zero",
-                ),
-                ops.convolution(
-                    Filter2D.VERTICAL_SOBEL_FILTER.value,
-                    Filter2D.VERTICAL_SOBEL_FILTER.value,
-                    padding_type="zero",
-                ),
+                # ops.convolution(
+                #     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                #     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                #     padding_type="zero",
+                # ),
+                Filter2D.HORIZONTAL_SOBEL_FILTER.value,
+                # ops.convolution(
+                #     Filter2D.VERTICAL_SOBEL_FILTER.value,
+                #     Filter2D.VERTICAL_SOBEL_FILTER.value,
+                #     padding_type="zero",
+                # ),
+                Filter2D.VERTICAL_SOBEL_FILTER.value,
                 ops.convolution(
                     Filter2D.HORIZONTAL_SOBEL_FILTER.value,
                     Filter2D.VERTICAL_SOBEL_FILTER.value,
@@ -61,57 +63,69 @@ class HarrisCornerDetector(BaseCornerDetector):
                 ),
             )
             image_list = image.tolist()
-            (hessian_xx, hessian_yy, hessian_xy) = (
+            (
+                second_moment_matrix_xx,
+                second_moment_matrix_yy,
+                second_moment_matrix_xy,
+            ) = (
                 np.array(
                     ops.convolution(
-                        image_list, second_order_derivator_x, padding_type="zero"
+                        image_list, first_order_derivator_x, padding_type="zero"
                     )
                 ),
                 np.array(
                     ops.convolution(
-                        image_list, second_order_derivator_y, padding_type="zero"
+                        image_list, first_order_derivator_y, padding_type="zero"
                     )
                 ),
                 np.array(
                     ops.convolution(
-                        image_list, second_order_derivator_xy, padding_type="zero"
+                        image_list, mixed_order_derivator_xy, padding_type="zero"
                     )
                 ),
             )
 
             # compute the second moment matrix in a Gaussian window around each pixel
-            (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy) = (
+            (convolved_xx, convolved_yy, convolved_xy) = (
                 np.array(
-                    ops.convolution(hessian_xx, gaussian_window, padding_type="zero")
+                    ops.convolution(
+                        second_moment_matrix_xx, gaussian_window, padding_type="zero"
+                    )
                 ),
                 np.array(
-                    ops.convolution(hessian_yy, gaussian_window, padding_type="zero")
+                    ops.convolution(
+                        second_moment_matrix_yy, gaussian_window, padding_type="zero"
+                    )
                 ),
                 np.array(
-                    ops.convolution(hessian_xy, gaussian_window, padding_type="zero")
+                    ops.convolution(
+                        second_moment_matrix_xy,
+                        gaussian_window,
+                        padding_type="zero"
+                    )
                 ),
             )
 
-            return (convolved_hessian_xx, convolved_hessian_yy, convolved_hessian_xy)
+            return (convolved_xx, convolved_yy, convolved_xy)
 
         def _compute_corner_response(
             kernel: List[List[float]],
             # these 3 have the same dims as the input image
-            convolved_hessian_xx: np.ndarray,
-            convolved_hessian_yy: np.ndarray,
-            convolved_hessian_xy: np.ndarray,
+            convolved_xx: np.ndarray,
+            convolved_yy: np.ndarray,
+            convolved_xy: np.ndarray,
             stride: int = 1,
         ) -> np.array:
             """TODO[Zain] add docstring"""
             # ensure the corner response matrix has the same dims as the input image
-            convolved_hessian_xx, _, _ = ops.pad(
-                convolved_hessian_xx, kernel, stride, "zero"
+            convolved_xx, _, _ = ops.pad(
+                convolved_xx, kernel, stride, "zero"
             )
-            convolved_hessian_yy, _, _ = ops.pad(
-                convolved_hessian_yy, kernel, stride, "zero"
+            convolved_yy, _, _ = ops.pad(
+                convolved_yy, kernel, stride, "zero"
             )
-            convolved_hessian_xy, _, _ = ops.pad(
-                convolved_hessian_xy, kernel, stride, "zero"
+            convolved_xy, _, _ = ops.pad(
+                convolved_xy, kernel, stride, "zero"
             )
 
             # computation begins below - TODO[Zain]: try to make this more DRY
@@ -119,22 +133,22 @@ class HarrisCornerDetector(BaseCornerDetector):
             kernel_h, kernel_w = len(kernel), len(kernel[0])
             # iterate over the rows and columns
             starting_row_ndx = 0
-            while starting_row_ndx <= len(convolved_hessian_xy) - kernel_h:
+            while starting_row_ndx <= len(convolved_xy) - kernel_h:
                 # convolve the next row of this response
                 response_row = list()
                 starting_col_ndx = 0
-                while starting_col_ndx <= len(convolved_hessian_xy[0]) - kernel_w:
+                while starting_col_ndx <= len(convolved_xy[0]) - kernel_w:
                     # compute the response for this window
                     col_index = starting_col_ndx
-                    block_of_derivative_xx = convolved_hessian_xx[
+                    block_of_derivative_xx = convolved_xx[
                         starting_row_ndx : (kernel_h + starting_row_ndx),
                         col_index : (kernel_w + col_index),
                     ]
-                    block_of_derivative_xy = convolved_hessian_xy[
+                    block_of_derivative_xy = convolved_xy[
                         starting_row_ndx : (kernel_h + starting_row_ndx),
                         col_index : (kernel_w + col_index),
                     ]
-                    block_of_derivative_yy = convolved_hessian_yy[
+                    block_of_derivative_yy = convolved_yy[
                         starting_row_ndx : (kernel_h + starting_row_ndx),
                         col_index : (kernel_w + col_index),
                     ]
@@ -167,17 +181,17 @@ class HarrisCornerDetector(BaseCornerDetector):
         ### DRIVER
         gaussian_window = BaseGaussianFilter().create_gaussian_filter()
         (
-            convolved_hessian_xx,
-            convolved_hessian_yy,
-            convolved_hessian_xy,
+            convolved_xx,
+            convolved_yy,
+            convolved_xy,
         ) = _compute_derivatives_in_gaussian_window(
             image, gaussian_window=gaussian_window
         )
         corner_response = _compute_corner_response(
             gaussian_window,
-            convolved_hessian_xx,
-            convolved_hessian_yy,
-            convolved_hessian_xy,
+            convolved_xx,
+            convolved_yy,
+            convolved_xy,
         )
 
         if use_non_max_suppression is True:
@@ -456,10 +470,7 @@ class HarrisCornerDetector(BaseCornerDetector):
         )
 
         cls.visualize_correspondences(
-            left_img,
-            right_img,
-            top_similarities,
-            plot_title=plot_title
+            left_img, right_img, top_similarities, plot_title=plot_title
         )
 
         return super().execute_and_visualize()
