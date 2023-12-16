@@ -73,6 +73,7 @@ def load_image(
     rotation_angle: int = 0,
     return_grayscale: bool = True,
     return_array: bool = False,
+    target_size: Tuple[int, int] = None,
 ) -> Union[List[List[int]], np.ndarray]:
     """
     Allows us to convert images from its binary form
@@ -82,6 +83,8 @@ def load_image(
         filename(str): relative path to the image file
         rotation_angle(int): in degrees
         return_array(bool): if True, the output returned is an ndarray
+        return_grayscale(bool): if True, the output has only 1 channel. It will be a 2D NumPy array.
+        target_size(2-tuple): (width, height) that you want the output to have.
 
     Returns: array-like, pixel raster matrix
     """
@@ -91,6 +94,9 @@ def load_image(
             img = img.convert("L")
 
         img = img.rotate(rotation_angle, expand=1)
+
+        if target_size is not None:
+            img = img.resize(size=target_size)
 
         # Get image data as a list of lists (2D list)
         image_data = list(img.getdata())  # currently, this is 1D
