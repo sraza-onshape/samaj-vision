@@ -74,6 +74,7 @@ def load_image(
     return_grayscale: bool = True,
     return_array: bool = False,
     target_size: Tuple[int, int] = None,
+    verbosity: bool = True,
 ) -> Union[List[List[int]], np.ndarray]:
     """
     Allows us to convert images from its binary form
@@ -106,12 +107,13 @@ def load_image(
         if return_array is True:
             image_data = np.array(image_data)
 
-        if len(image_data.shape) == 2:
-            print(f"Dimensions of {filename}: {height} x {width}")
-        elif len(image_data.shape) == 3:
-            print(
-                f"Dimensions of {filename}: {height} x {width} x {image_data.shape[2]}"
-            )
+        if verbosity is True:
+            if len(image_data.shape) == 2:
+                print(f"Dimensions of {filename}: {height} x {width}")
+            elif len(image_data.shape) == 3:
+                print(
+                    f"Dimensions of {filename}: {height} x {width} x {image_data.shape[2]}"
+                )
 
     return image_data
 
