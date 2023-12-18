@@ -10,6 +10,7 @@ __pycache__/
 *.png
 !/Circle-Center-Detection/*.png
 End-of-Course-Projects/Image-Data-Association/fftw-3.3.10/*
+End-of-Course-Projects/Image-Data-Association/SfM_quality_evaluation/*
 
 # OS and editor
 .vscode
