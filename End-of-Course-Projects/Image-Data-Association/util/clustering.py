@@ -1,5 +1,5 @@
 import functools
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,7 +75,7 @@ class KMeans:
             self.centroid_coords[centroid_label] = centroids[centroid_label, :]
         return self.centroid_coords
 
-    def predict(self, X: np.array):
+    def predict(self, X: np.array) -> List[int]:
         centroids = [coords for coords in self.centroid_coords.values()]
         centroid_assignment = [
             np.argmin(
