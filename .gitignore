@@ -9,6 +9,8 @@ __pycache__/
 # Assets 
 *.png
 !/Circle-Center-Detection/*.png
+End-of-Course-Projects/*/fftw-3.3.10/*
+End-of-Course-Projects/*/SfM_quality_evaluation/*
 
 # OS and editor
 .vscode
