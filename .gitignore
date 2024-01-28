@@ -11,6 +11,8 @@ __pycache__/
 !/Circle-Center-Detection/*.png
 End-of-Course-Projects/*/fftw-3.3.10/*
 End-of-Course-Projects/*/SfM_quality_evaluation/*
+*.mat
+*.obj
 
 # OS and editor
 .vscode
